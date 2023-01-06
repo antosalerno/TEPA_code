@@ -3,6 +3,13 @@
 ## date: 21/12/2022
 
 library("Seurat")
+library("SeuratObject")
+library(SeuratDisk)
+library(SeuratData)
+if (!require("RColorBrewer")) {
+  install.packages("RColorBrewer")
+  library(RColorBrewer)
+}
 setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
 
 #### 1 - Create Seurat object with all the samples ####
@@ -31,14 +38,18 @@ combined <- merge(
 
 seuset <- combined
 seuset$condition <- ifelse(test = seuset$orig.ident %in% c("CF", "CM"), yes = "Control", no = "Treatment")
+seuset$sampleType <- ifelse(test = seuset$orig.ident %in% c("TM", "CM"), yes = "Myeloid", no = "Full")
+
 
 # table(seuset$orig.ident)
 
-save(seuset, file = "TEPA_results/00_rawcounts.rda")
+# save(seuset, file = "TEPA_results/00_rawcounts.rda")
+SaveH5Seurat(seuset, filename = "00_rawcounts.h5Seurat", overwrite = TRUE)
 
 #### 2 - Data pre-processing ####
 
-load("TEPA_results/00_rawcounts.rda")
+# load("TEPA_results/00_rawcounts.rda")
+seuset <- LoadH5Seurat("TEPA_results/00_rawcounts.h5Seurat")
 
 png("TEPA_plots/00_preFilterQC_violin.png", h = 3000, w = 4200, res = 300)
 VlnPlot(seuset, features = c("nFeature_RNA", "nCount_RNA", "Mycn"), ncol = 3, pt.size = 0.000005)
@@ -82,11 +93,16 @@ png("TEPA_plots/00_umapCounts.png", w = 4000, h = 2000, res = 300)
 FeaturePlot(seuset, features = c("nCount_RNA", "nFeature_RNA"), min.cutoff = "q10", max.cutoff = "q90")
 dev.off()
 
+png("TEPA_plots/00_umapNB_PRE.png", h = 4000, w = 4000, res = 300)
+FeaturePlot(seuset, ncol = 2, pt.size = 0.0005,
+            features = c("Mycn", "Ptprc", "Alk", "Phox2b"), label = TRUE, repel = TRUE) &
+  scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
+dev.off()
+
 #### 4 - Create a gene set uniquely identifying Neuroblastoma tumour ####
 
-NB = c("Mycn", "Myc", "Dcx", "Phox2b", "Ccnd1", "Alk",
-           "Trp53", "Kif18a","Ezh2", "Nf1", "Sdhb",
-           "Vangl1","Pde6g","Nras", "Brip1","Brca1","Brca2","Ptpn11","Apc")
+# NB = c("Mycn", "Myc", "Dcx", "Phox2b", "Ccnd1", "Alk", "Trp53", "Kif18a","Ezh2", "Nf1", "Sdhb", "Vangl1","Pde6g","Nras", "Brip1","Brca1","Brca2","Ptpn11","Apc")
+# NB = c("Mycn", "Alk", "Phox2b")
 
 # https://doi.org/10.1038/nrdp.2016.78
 
@@ -103,28 +119,40 @@ save(seuset, file = "TEPA_results/00_seusetNB.rda")
 
 #### 5 - Subset only immune cells by using the module score for NB ####
 
-table(seuset$orig.ident) # pre-subsetting
+table(seuset$orig.ident) # pre-subsetting: CF: 9100  CM: 7377  TF: 9412 TM: 11174 
 
-immune <- subset(seuset, NB > 0, invert = TRUE) # we remove very little amount of cells from myeloid samples, it looks really specific to the tumour
-immune <- subset(immune, Mycn > 2 & Ptprc < 1, invert = TRUE) # immune cells post-filtering: we double check if we missed some Mycn+/Cd45- cell
+tumorCells1 <- Cells(subset(seuset[,seuset$sampleType == "Full"], Mycn > 1.5))
+tumorCells2 <- Cells(subset(seuset[,seuset$sampleType == "Full"], Phox2b > 1))
+tumorCells <- c(tumorCells1, tumorCells2)
+immune <- seuset[,!colnames(seuset) %in% tumorCells]
 
-table(immune$orig.ident) # post-subsetting
+# immune <- subset(seuset, NB > 0, invert = TRUE) # we remove very little amount of cells from myeloid samples, it looks really specific to the tumour
+# immune <- subset(immune, Mycn > 2 & Ptprc < 1, invert = TRUE) # immune cells post-filtering: we double check if we missed some Mycn+/Cd45- cell
+
+table(immune$orig.ident) 
+# post-subsetting all samples: CF: 1818 CM: 2399  TF: 748 TM: 6472
+# only Full samples: CF: 3264 CM: 7377 TF: 2981 TM: 11174
+
+png("TEPA_plots/00_umapNB_POST.png", h = 4000, w = 4000, res = 300)
+FeaturePlot(immune, ncol = 2, pt.size = 0.0005,
+            features = c("Mycn", "Ptprc","Alk", "Phox2b"), label = TRUE, repel = TRUE) &
+  scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
+dev.off()
 
 png("TEPA_plots/00_postFilterImmune_violin.png", h = 3000, w = 4200, res = 300)
 VlnPlot(immune, features = c("nFeature_RNA", "nCount_RNA", "Mycn"), ncol = 3, pt.size = 0.000005)
 dev.off()
 
-png("TEPA_plots/00_postFilterImmune_Mycn_Cd45.png", h = 3000, w = 4200, res = 300)
+png("TEPA_plots/00_postFilterImmune_Mycn_Cd452.png", h = 3000, w = 4200, res = 300)
 FeatureScatter(immune, feature1 = "Mycn", feature2 = "Ptprc", pt.size = 0.0005)
 dev.off()
 
-png("TEPA_plots/00_umapNB_Immune.png", h = 2000, w = 4000, res = 300)
-FeaturePlot(immune, ncol = 2, pt.size = 0.0005,
-            features = c("Mycn", "Ptprc"), label = TRUE, repel = TRUE) &
-  scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
+png("TEPA_plots/00_postFilterQC_Mycn_Cd11b.png", h = 3000, w = 4200, res = 300)
+FeatureScatter(immune, feature1 = "Mycn", feature2 = "Itgam", pt.size = 0.0005)
 dev.off()
 
-save(immune, file = "TEPA_results/00_immune.rda")
+# save(immune, file = "TEPA_results/00_immune.rda")
+SaveH5Seurat(immune, filename = "TEPA_results/00_immune.h5Seurat", overwrite = TRUE)
 
 
 
