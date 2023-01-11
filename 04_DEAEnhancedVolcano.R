@@ -4,14 +4,15 @@
 
 library("EnhancedVolcano")
 setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
+seuset_immune <- LoadH5Seurat("TEPA_results/03_seusetImmuneModule.h5Seurat")
 
-clusters <- c("Neutrophils","Macrophages","Eosinophils","Cd4+ T-cells","Ly6C+ monocytes",
-              "DCs","B-cells", "Cd8+ T-cells","NKs","γδ-T cells","Basophils","Plasma cells")
+Idents(seuset_immune) <- "scType"
+clusters = unique(Idents(seuset_immune))
 
 # Read the DEA tables for each cluster and then plot
 
 for (cluster in clusters){
-  res <- read.csv(paste0("TEPA_results/DEA_",cluster,".csv"), sep=",")
+  res <- read.csv(paste0("TEPA_results/02_DEAcluster",cluster,".csv"), sep=",")
   rownames(res) <- res$X
   p <- EnhancedVolcano(res, subtitle = "",
                        #selectLab = markers,
@@ -32,5 +33,5 @@ for (cluster in clusters){
                        widthConnectors = 0.3,colConnectors = 'gray51', maxoverlapsConnectors = 50,
                        caption = paste0('Upregulated = ', nrow(res[res$avg_log2FC>0.75&res$p_val_adj<=0.05,]), ' genes',
                                         "\n",'Downregulated = ', nrow(res[res$avg_log2FC< -0.75&res$p_val_adj<=0.05,]), ' genes'))+ theme(plot.title = element_text(hjust = 0.5)) + coord_flip()
-  ggsave(p, file=paste0("TEPA_plots/DEA_",cluster,".png"), width = 14, height = 20, units = "cm")
+  ggsave(p, file=paste0("TEPA_plots/04_DEAcluster_",cluster,".png"), width = 14, height = 20, units = "cm")
 }

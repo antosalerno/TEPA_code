@@ -38,7 +38,11 @@ write.csv(cL_results, file=paste0("TEPA_results/02_scTypeAnn.csv"))
 
 # Set low-confident (low ScType score) clusters to "unknown"
 sctype_scores$type[as.numeric(as.character(sctype_scores$scores)) < sctype_scores$ncells/4] = "Unknown"
-#sctype_scores$type <- c("Macrophages", "CD8+ T cells", "CD4+ T cells", "Platelets", "Plasma Cells", "DCs", "B cells", "γδ-T cells", "Neutrophils", "NKs","Basophils", "Eosinophils")
+
+# Manual curation of scType annotation
+sctype_scores <- sctype_scores[-4,]
+sctype_scores$type <- c("Dendritic cells", "Naive CD4+ T cells", "B cells", "γδ-T cells", "Memory CD4+ T cells", "CD8+ T cells", "Progenitor cells",
+                        "Natural killer cells", "Neutrophils", "Eosinophils", "Basophils")
 
 seuset_immune@meta.data$scType = ""
 for(j in unique(sctype_scores$cluster)){
@@ -46,34 +50,47 @@ for(j in unique(sctype_scores$cluster)){
   seuset_immune@meta.data$scType[seuset_immune@meta.data$seurat_clusters == j] = as.character(cl_type$type[1])
 }
 
-png("TEPA_plots/02_umapExploreAnn.png", w = 9000, h = 3500, res = 400)
-DimPlot(object = seuset_immune, pt.size = 0.0005, reduction = 'umap', ncol = 3,
-        group.by = c("orig.ident", "condition", "scType"), label = TRUE) +
+Idents(seuset_immune) <- seuset_immune@meta.data$scType
+
+png("TEPA_plots/02_umapExploreAnn.png", w = 6000, h = 3000, res = 400)
+DimPlot(object = seuset_immune, pt.size = 0.0000005, reduction = 'umap', ncol = 2,
+        group.by = c("orig.ident", "scType"), label = TRUE) +
   ggtitle(paste(as.character(nrow(seuset_immune@meta.data)), " cells"))
 dev.off()
 
+png("TEPA_plots/02_umapClust.png", w = 6000, h = 3000, res = 300)
+DimPlot(object = seuset_immune, pt.size = 0.5, reduction = 'umap', ncol = 2,
+        group.by = c("scType"), split.by= "condition",label = TRUE) +
+  ggtitle(paste(as.character(nrow(seuset_immune@meta.data)), " cells")) +
+  theme(plot.title = element_text(hjust = 0.5))
+dev.off()
+
+pt <- table(Idents(seuset_immune), seuset_immune$condition)
+pt <- as.data.frame(pt)
+pt$Var1 <- as.character(pt$Var1)
+
+png(paste0("TEPA_plots/02_condAnnCluster.png"), w=2500,h=2500, res=300)
+ggplot(pt, aes(x = Var2, y = Freq, fill = Var1)) +
+  theme_bw(base_size = 15) +
+  geom_col(position = "fill", width = 0.5) +
+  geom_bar(stat = "identity")+
+  xlab("Condition") +
+  ylab("Cell type") +
+  ggtitle("Cell types in TEPA vs Control") +
+  scale_fill_manual(values = brewer.pal(12, "Paired")) +
+  theme(legend.title = element_blank())
+dev.off()
+
+SaveH5Seurat(seuset_immune, filename = "TEPA_results/02_immuneAnn.h5Seurat", overwrite = TRUE)
+
 #### Inter-cluster DEA: get marker genes ####
 
-immune.ann <- RenameIdents(seuset_immune,
-                           `0` = "Intermediate monocytes",
-                           `1` = "Eosinophils",
-                           `2` = "ISG expressing immune cells",
-                           `3` = "Naive CD4+ T cells",
-                           `4` = "Ly6C monocytes",
-                           `5` = "Naive CD8+ T cells",
-                           `6` = "Memory CD4+ T cells",
-                           `7` = "Dendritic cells",
-                           `8` = "NKs",
-                           `9` = "Progenitor cells",
-                           `10` = "γδ-T cells",
-                           `11` = "B-cells")
-
-DefaultAssay(immune.ann) <- "RNA"
+DefaultAssay(seuset_immune) <- "RNA"
 
 # Find markers for every cluster compared to all remaining cells
-immune.markers <- FindAllMarkers(immune.ann, 
+immune.markers <- FindAllMarkers(seuset_immune, 
                                  only.pos = FALSE, 
-                                 # min.pct = 0.5, 
+                                 min.pct = 0.5, 
                                  min.diff.pct = 0.2,
                                  logfc.threshold = 0.5, 
                                  test.use="MAST",
@@ -81,13 +98,8 @@ immune.markers <- FindAllMarkers(immune.ann,
 
 write.csv(immune.markers, "TEPA_results/02_DEA_clusterMarkers.csv")
 
-# Fast visualisation of markers by cluster
-immune.markers %>%
-  group_by(cluster) %>% 
-  filter(p_val_adj<0.05)
-
 # Save results in different excel sheets 
-clusters = unique(Idents(immune.ann))
+clusters = unique(Idents(seuset_immune))
 
 wb <- createWorkbook()
 for(c in 1:length(clusters)){
@@ -100,30 +112,31 @@ saveWorkbook(wb, file="TEPA_results/02_DEA_clusterMarkers.xlsx", overwrite = TRU
 
 #### Intra-cluster DEA with annotated dataset - Treatment vs Control ####
 
-immune.ann$celltype.tepa <- paste(Idents(immune.ann), immune.ann$condition, sep = "_")
-immune.ann$celltype <- Idents(immune.ann)
-Idents(immune.ann) <- "celltype.tepa"
-DefaultAssay(immune.ann) <- "RNA"
+seuset_immune$celltype.tepa <- paste(Idents(seuset_immune), seuset_immune$condition, sep = "_")
+seuset_immune$celltype <- Idents(seuset_immune)
+Idents(seuset_immune) <- "celltype.tepa"
+DefaultAssay(seuset_immune) <- "RNA"
 
 sheets <- list()
-for (cluster in unique(immune.ann$celltype)){
+for (cluster in unique(seuset_immune$celltype)){
   try({
     ident1 <- paste0(cluster,"_Control")
     ident2 <- paste0(cluster,"_Treatment")
-    condition.diffgenes <- FindMarkers(immune.ann, 
+    condition.diffgenes <- FindMarkers(seuset_immune, 
                                        ident.1 = ident1, ident.2 = ident2,
                                        min.pct = 0.25, logfc.threshold = 0.25, 
-                                       only.pos = FALSE, verbose = FALSE)
+                                       only.pos = FALSE, verbose = FALSE,
+                                       test.use="MAST", latent.vars="orig.ident")
     sheets[[cluster]] <- as.data.frame(condition.diffgenes)
     
     # Needed for plotting
-    # write.csv(condition.diffgenes, file=paste0("TEPA_results/02_DEAcluster",cluster,".csv"))
+    write.csv(condition.diffgenes, file=paste0("TEPA_results/02_DEAcluster",cluster,".csv"))
   })
 }
 # Needed for manual curation
 openxlsx::write.xlsx(sheets, "TEPA_results/02_DEA_TEPA.xlsx", rowNames=TRUE)
 
-SaveH5Seurat(immune.ann, filename = "TEPA_results/02_immuneAnn.h5Seurat", overwrite = TRUE)
+SaveH5Seurat(seuset_immune, filename = "TEPA_results/02_immuneAnn.h5Seurat", overwrite = TRUE)
 
 
 
