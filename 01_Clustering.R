@@ -34,15 +34,15 @@ immune@meta.data %>%
   geom_vline(xintercept = 25)
 dev.off()
 
-immune <- subset(immune, subset = nFeature_RNA > 200 & nFeature_RNA < 5000 &
-                   percent.mt < 25 & nCount_RNA < 2500) # all above 50 genes per cell anyways
+immune <- subset(immune, subset = nFeature_RNA > 200 & nFeature_RNA < 6000 &
+                   percent.mt < 25 & nCount_RNA < 3000) # all above 50 genes per cell anyways
 
 png("TEPA_plots/01_postFilterQC_violin.png", h = 3000, w = 4200, res = 300)
 VlnPlot(immune, features = c("nFeature_RNA", "nCount_RNA", "Mycn"), ncol = 3, pt.size = 0.000005)
 dev.off()
 
 png("TEPA_plots/01_postFilterQC_Mycn_Cd45.png", h = 3000, w = 4200, res = 300)
-FeatureScatter(immune, feature1 = "Mycn", feature2 = "Ptprc", pt.size = 0.0005)
+FeatureScatter(immune, feature1 = "Mycn", feature2 = "Ptprc", pt.size = 2)
 dev.off()
 
 png("TEPA_plots/01_postFilterQC_scatter.png", h = 3000, w = 4200, res = 300)
@@ -72,12 +72,12 @@ immune.anchors <- FindIntegrationAnchors(object.list = samples.list,anchor.featu
 immune.combined <- IntegrateData(anchorset = immune.anchors)
 
 # save(immune.combined, file = "TEPA_results/01_immuneInt.rda")
-SaveH5Seurat(immune.combined, filename = "TEPA_results/01_immuneFilt.h5Seurat", overwrite = TRUE)
+SaveH5Seurat(immune.combined, filename = "TEPA_results/01_immuneInt.h5Seurat", overwrite = TRUE)
 
 #### 3 - Dimensionality reduction ####
 
 #load("TEPA_results/01_immuneInt.rda")
-immune.combined <- LoadH5Seurat("01_immuneFilt.h5Seurat")
+immune.combined <- LoadH5Seurat("01_immuneInt.h5Seurat")
 
 # Scaling
 seuset_immune <- ScaleData(immune.combined, verbose = FALSE)
@@ -87,11 +87,11 @@ seuset_immune <- RunPCA(seuset_immune, npcs = 100, verbose = FALSE, assay = "int
 pct <- seuset_immune@reductions$pca@stdev / sum(seuset_immune@reductions$pca@stdev) * 100
 # Calculate cumulative percents for each PC
 cum <- cumsum(pct)
-head(cum, n=40) # Select 40 PCs to retain 54% of variability
+head(cum, n=60) # Select 60 PCs to retain 70.37% of variability
 
-seuset_immune <- FindNeighbors(object = seuset_immune, dims = 1:40, reduction = 'pca')
-seuset_immune <- FindClusters(object = seuset_immune, resolution = 0.4) # original plot is 0.7
-seuset_immune <- RunUMAP(seuset_immune, dims = 1:40, reduction = "pca", verbose = FALSE)
+seuset_immune <- FindNeighbors(object = seuset_immune, dims = 1:60, reduction = 'pca')
+seuset_immune <- FindClusters(object = seuset_immune, resolution = 0.28) # Louvain algorithm with multi-level refinement
+seuset_immune <- RunUMAP(seuset_immune, dims = 1:60, reduction = "pca", verbose = FALSE)
 
 png("TEPA_plots/01_umapExplore.png", w = 6000, h = 2000, res = 300)
 DimPlot(object = seuset_immune, pt.size = 0.0005, reduction = 'umap', ncol = 3,
@@ -100,15 +100,15 @@ DimPlot(object = seuset_immune, pt.size = 0.0005, reduction = 'umap', ncol = 3,
   theme(plot.title = element_text(hjust = 0.5))
 dev.off()
 
-png("TEPA_plots/01_umapCounts.png", w = 4000, h = 2000, res = 300)
-FeaturePlot(seuset_immune, features = c("nCount_RNA", "nFeature_RNA"), min.cutoff = "q10", max.cutoff = "q90")
-dev.off()
-
 png("TEPA_plots/01_umapClust.png", w = 4000, h = 2000, res = 300)
 DimPlot(object = seuset_immune, pt.size = 0.0005, reduction = 'umap', ncol = 3,
         group.by = c("seurat_clusters"), split.by= "condition",label = TRUE) +
   ggtitle(paste(as.character(nrow(seuset_immune@meta.data)), " cells")) +
   theme(plot.title = element_text(hjust = 0.5))
+dev.off()
+
+png("TEPA_plots/01_umapCounts.png", w = 4000, h = 2000, res = 300)
+FeaturePlot(seuset_immune, features = c("nCount_RNA", "nFeature_RNA"), min.cutoff = "q10", max.cutoff = "q90")
 dev.off()
 
 # save(seuset_immune, file = "TEPA_results/01_seusetImmune.rda")
