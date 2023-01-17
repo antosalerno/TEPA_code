@@ -14,7 +14,6 @@ setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
 # load("TEPA_results/01_seusetImmune.rda")
 seuset_immune <- LoadH5Seurat("TEPA_results/01_seusetImmune.h5Seurat")
 
-
 source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/gene_sets_prepare.R")
 source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/sctype_score_.R")
 
@@ -30,19 +29,21 @@ cL_results = do.call("rbind",
                      lapply(unique(seuset_immune@meta.data$seurat_clusters), 
                                      function(cl){
                                        es.max.cl = sort(rowSums(es.max[ ,rownames(seuset_immune@meta.data[seuset_immune@meta.data$seurat_clusters==cl, ])]),decreasing = !0)
-                                       head(data.frame(cluster = cl, type = names(es.max.cl), scores = es.max.cl, ncells = sum(seuset_immune@meta.data$seurat_clusters==cl)), 10)
                                        }))
 sctype_scores = cL_results %>% group_by(cluster) %>% top_n(n = 1, wt = scores)  
-
-write.csv(cL_results, file=paste0("TEPA_results/02_scTypeAnn.csv"))
-
-# Set low-confident (low ScType score) clusters to "unknown"
-sctype_scores$type[as.numeric(as.character(sctype_scores$scores)) < sctype_scores$ncells/4] = "Unknown"
+sctype_scores = sctype_scores[order(sctype_scores$cluster),]
 
 # Manual curation of scType annotation
-sctype_scores <- sctype_scores[-4,]
-sctype_scores$type <- c("Dendritic cells", "Naive CD4+ T cells", "B cells", "γδ-T cells", "Memory CD4+ T cells", "CD8+ T cells", "Progenitor cells",
-                        "Natural killer cells", "Neutrophils", "Eosinophils", "Basophils")
+sctype_scores[3, "type"] <- "Cd4+ Naive T cells"
+sctype_scores[4, "type"] <- "Cd4+ Naive T cells"
+sctype_scores[5, "type"] <- "Cd4+ Memory T cells"
+sctype_scores[6, "type"] <- "Cd4+ Regulatory T cells"
+sctype_scores[7, "type"] <- "Cd8+ Naive T cells"
+sctype_scores[8, "type"] <- "Cd8+ NkT-like cells"
+sctype_scores[10, "type"] <- "Macrophages" # or macrophages
+sctype_scores[11, "type"] <- "Dendritic cells" # or DCs
+sctype_scores[13, "type"] <- "B cells"
+sctype_scores[15, "type"] <- "Pre-B cells"
 
 seuset_immune@meta.data$scType = ""
 for(j in unique(sctype_scores$cluster)){
@@ -52,24 +53,22 @@ for(j in unique(sctype_scores$cluster)){
 
 Idents(seuset_immune) <- seuset_immune@meta.data$scType
 
-png("TEPA_plots/02_umapExploreAnn.png", w = 6000, h = 3000, res = 400)
-DimPlot(object = seuset_immune, pt.size = 0.0000005, reduction = 'umap', ncol = 2,
-        group.by = c("orig.ident", "scType"), label = TRUE) +
-  ggtitle(paste(as.character(nrow(seuset_immune@meta.data)), " cells"))
+png("TEPA_plots/02_umapAnn.png", w = 3000, h = 3000, res = 300)
+p <- DimPlot(object = seuset_immune, pt.size = 0.5, reduction = 'umap', ncol = 1,
+             group.by = "scType", label = FALSE) +
+  ggtitle("Cell types in NB Control and Treated samples") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+LabelClusters(p, id = "scType", size = 5, repel = T,  box.padding = 1)
 dev.off()
 
-png("TEPA_plots/02_umapClust.png", w = 6000, h = 3000, res = 300)
-DimPlot(object = seuset_immune, pt.size = 0.5, reduction = 'umap', ncol = 2,
-        group.by = c("scType"), split.by= "condition",label = TRUE) +
-  ggtitle(paste(as.character(nrow(seuset_immune@meta.data)), " cells")) +
-  theme(plot.title = element_text(hjust = 0.5))
-dev.off()
-
+### Bar Plot with proportions
 pt <- table(Idents(seuset_immune), seuset_immune$condition)
 pt <- as.data.frame(pt)
 pt$Var1 <- as.character(pt$Var1)
+getPalette = colorRampPalette(brewer.pal(11, "PiYG"))
+colorCount = length(unique(pt$Var1))
 
-png(paste0("TEPA_plots/02_condAnnCluster.png"), w=2500,h=2500, res=300)
+png(paste0("TEPA_plots/02_condAnnClusterFreq.png"), w=2500,h=2500, res=300)
 ggplot(pt, aes(x = Var2, y = Freq, fill = Var1)) +
   theme_bw(base_size = 15) +
   geom_col(position = "fill", width = 0.5) +
@@ -77,8 +76,23 @@ ggplot(pt, aes(x = Var2, y = Freq, fill = Var1)) +
   xlab("Condition") +
   ylab("Cell type") +
   ggtitle("Cell types in TEPA vs Control") +
-  scale_fill_manual(values = brewer.pal(12, "Paired")) +
+  scale_fill_manual(values = getPalette(colorCount)) +
   theme(legend.title = element_blank())
+dev.off()
+
+###  Bar Plot with percentage
+# Choose color palette (brewer.pal.info)
+pt <- table(Idents(seuset_immune), seuset_immune$condition)
+data_percentage<- apply(pt, 2, function(x){as.numeric(x)*100/sum(x,na.rm=T)})
+
+# Make a stacked barplot--> it will be in %!
+png(paste0("TEPA_plots/02_condAnnClusterPerc.png"), w=2500,h=2500, res=300)
+par(mar = c(5.1, 5.1, 4.1, 12))
+barplot(data_percentage, col=getPalette(colorCount), border="white", 
+        ylab="Percentage of cells per cell type",
+        main = "Cell types in TEPA vs Control",
+        legend = rownames(pt),
+        args.legend = list(x = "topright",inset = c(-0.45, 0)))
 dev.off()
 
 SaveH5Seurat(seuset_immune, filename = "TEPA_results/02_immuneAnn.h5Seurat", overwrite = TRUE)
@@ -124,7 +138,7 @@ for (cluster in unique(seuset_immune$celltype)){
     ident2 <- paste0(cluster,"_Treatment")
     condition.diffgenes <- FindMarkers(seuset_immune, 
                                        ident.1 = ident1, ident.2 = ident2,
-                                       min.pct = 0.25, logfc.threshold = 0.25, 
+                                       logfc.threshold = 0.25, 
                                        only.pos = FALSE, verbose = FALSE,
                                        test.use="MAST", latent.vars="orig.ident")
     sheets[[cluster]] <- as.data.frame(condition.diffgenes)

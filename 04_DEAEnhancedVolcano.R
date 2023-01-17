@@ -22,7 +22,7 @@ for (cluster in clusters){
                        xlim = c(-2.5, 2.5),
                        title = paste0(cluster,', TEPA vs. CTRL '),
                        pCutoff = 0.05, #0.05 cutoff
-                       FCcutoff = 0.75, # 2-fold change
+                       FCcutoff = 0.5, # 2-fold change
                        labFace = "bold",
                        labSize = 3,
                        col = c('lightgrey', 'pink', 'lightblue', 'salmon'),

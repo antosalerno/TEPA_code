@@ -77,7 +77,7 @@ SaveH5Seurat(immune.combined, filename = "TEPA_results/01_immuneInt.h5Seurat", o
 #### 3 - Dimensionality reduction ####
 
 #load("TEPA_results/01_immuneInt.rda")
-immune.combined <- LoadH5Seurat("01_immuneInt.h5Seurat")
+immune.combined <- LoadH5Seurat("TEPA_results/01_immuneInt.h5Seurat")
 
 # Scaling
 seuset_immune <- ScaleData(immune.combined, verbose = FALSE)
@@ -89,8 +89,8 @@ pct <- seuset_immune@reductions$pca@stdev / sum(seuset_immune@reductions$pca@std
 cum <- cumsum(pct)
 head(cum, n=60) # Select 60 PCs to retain 70.37% of variability
 
-seuset_immune <- FindNeighbors(object = seuset_immune, dims = 1:60, reduction = 'pca')
-seuset_immune <- FindClusters(object = seuset_immune, resolution = 0.28) # Louvain algorithm with multi-level refinement
+seuset_immune <- FindNeighbors(object = seuset_immune, dims = 1:60, graph.name = "clust", reduction = 'pca')
+seuset_immune <- FindClusters(object = seuset_immune, graph.name = "clust", resolution = 0.3, algorithm = 1) # Louvain algorithm with multi-level refinement
 seuset_immune <- RunUMAP(seuset_immune, dims = 1:60, reduction = "pca", verbose = FALSE)
 
 png("TEPA_plots/01_umapExplore.png", w = 6000, h = 2000, res = 300)
@@ -110,6 +110,25 @@ dev.off()
 png("TEPA_plots/01_umapCounts.png", w = 4000, h = 2000, res = 300)
 FeaturePlot(seuset_immune, features = c("nCount_RNA", "nFeature_RNA"), min.cutoff = "q10", max.cutoff = "q90")
 dev.off()
+
+### 4 - Sub-clustering ####
+
+seuset_immune <- FindSubCluster(seuset_immune, "2", "clust", subcluster.name = "seurat_clusters",  resolution = 0.35, algorithm = 1)
+DimPlot(seuset_immune, reduction = "umap", group.by = "seurat_clusters", label = TRUE, label.size = 3)
+Idents(seuset_immune) <- "seurat_clusters"
+
+seuset_immune <- FindSubCluster(seuset_immune, "2_2", "clust", subcluster.name = "seurat_clusters",  resolution = 0.2, algorithm = 1)
+DimPlot(seuset_immune, reduction = "umap", group.by = "seurat_clusters", label = TRUE, label.size = 3)
+Idents(seuset_immune) <- "seurat_clusters"
+
+seuset_immune <- FindSubCluster(seuset_immune, "3", "clust", subcluster.name = "seurat_clusters",  resolution = 0.2, algorithm = 1)
+DimPlot(seuset_immune, reduction = "umap", group.by = "seurat_clusters", label = TRUE, label.size = 3)
+Idents(seuset_immune) <- "seurat_clusters"
+
+seuset_immune <- FindSubCluster(seuset_immune, "5", "clust", subcluster.name = "seurat_clusters",  resolution = 0.2, algorithm = 1)
+DimPlot(seuset_immune, reduction = "umap", group.by = "seurat_clusters", label = TRUE, label.size = 3)
+Idents(seuset_immune) <- "seurat_clusters"
+
 
 # save(seuset_immune, file = "TEPA_results/01_seusetImmune.rda")
 SaveH5Seurat(seuset_immune, filename = "TEPA_results/01_seusetImmune.h5Seurat", overwrite = TRUE)
