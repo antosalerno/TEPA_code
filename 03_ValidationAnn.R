@@ -149,7 +149,7 @@ dev.off() # Treg higher in tumor and in inflammation: cd25 and foxp3
 
 png("TEPA_plots/03_densityEosino.png", h = 2000, w = 3500, res = 200)
 DefaultAssay(seuset_immune)<-"RNA"
-plot_density(seuset_immune, features = c("Il5ra", "Ccr3", "Adgre1"), joint = TRUE)
+plot_density(seuset_immune, features = c("Il5ra", "Ccr3", "Adgre1","Ccl6"), joint = TRUE)
 dev.off()
 
 png("TEPA_plots/03_densityMemory.png", h = 2000, w = 3500, res = 200)
@@ -159,6 +159,6 @@ dev.off()
 
 SaveH5Seurat(seuset_immune, filename = "TEPA_results/03_seusetImmuneModule.h5Seurat", overwrite = TRUE)
 
-
+# HLA expressing cell
 
 
