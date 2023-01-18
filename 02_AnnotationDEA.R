@@ -27,9 +27,11 @@ es.max = sctype_score(scRNAseqData = seuset_immune[["integrated"]]@scale.data,
 ####  Get scType scores by cluster ####
 cL_results = do.call("rbind", 
                      lapply(unique(seuset_immune@meta.data$seurat_clusters), 
-                                     function(cl){
-                                       es.max.cl = sort(rowSums(es.max[ ,rownames(seuset_immune@meta.data[seuset_immune@meta.data$seurat_clusters==cl, ])]),decreasing = !0)
-                                       }))
+                            function(cl){
+                              es.max.cl = sort(rowSums(es.max[,rownames(seuset_immune@meta.data[seuset_immune@meta.data$seurat_clusters==cl, ])]), decreasing = !0)
+                              head(data.frame(cluster = cl, type = names(es.max.cl), scores = es.max.cl, ncells = sum(seuset_immune@meta.data$seurat_clusters==cl)), 10)
+                              }))
+
 sctype_scores = cL_results %>% group_by(cluster) %>% top_n(n = 1, wt = scores)  
 sctype_scores = sctype_scores[order(sctype_scores$cluster),]
 
@@ -43,7 +45,7 @@ sctype_scores[8, "type"] <- "Cd8+ NkT-like cells"
 sctype_scores[10, "type"] <- "Macrophages" # or macrophages
 sctype_scores[11, "type"] <- "Dendritic cells" # or DCs
 sctype_scores[13, "type"] <- "B cells"
-sctype_scores[15, "type"] <- "Pre-B cells"
+sctype_scores[15, "type"] <- "HLA-expressing cells"
 
 seuset_immune@meta.data$scType = ""
 for(j in unique(sctype_scores$cluster)){

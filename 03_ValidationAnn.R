@@ -159,6 +159,5 @@ dev.off()
 
 SaveH5Seurat(seuset_immune, filename = "TEPA_results/03_seusetImmuneModule.h5Seurat", overwrite = TRUE)
 
-# HLA expressing cell
 
 
