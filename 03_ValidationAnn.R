@@ -8,6 +8,7 @@ if (!require("RColorBrewer")) {
   install.packages("RColorBrewer")
   library(RColorBrewer)
 }
+library("Nebulosa")
 
 setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
 seuset_immune <- LoadH5Seurat("TEPA_results/02_immuneAnn.h5Seurat")
@@ -16,7 +17,7 @@ immune.markers <- read.csv("TEPA_results/02_DEA_clusterMarkers.csv")
 DefaultAssay(seuset_immune) <- "RNA"
 
 # Search all isoforms of gene of interest
-grep(pattern = "Cx3cr1", 
+grep(pattern = "Vegf", 
      x = rownames(x = seuset_immune@assays$RNA@data), 
      value = TRUE, ignore.case = TRUE)
 
@@ -157,7 +158,19 @@ DefaultAssay(seuset_immune)<-"RNA"
 plot_density(seuset_immune, features = c("Il7r", "Ctla4"), joint = TRUE)
 dev.off()
 
-SaveH5Seurat(seuset_immune, filename = "TEPA_results/03_seusetImmuneModule.h5Seurat", overwrite = TRUE)
+png("TEPA_plots/03_Mt2_split.png", h = 2000, w = 3500, res = 200)
+plot_density(seuset_immune, "Mt2") + 
+  facet_grid(.~seuset_immune$condition)
+#plot_density(seuset_immune, features = c("Mt1", "Mt2"), joint = TRUE)
+dev.off()
 
+png("TEPA_plots/03_Mt1Mt2_violin.png", h = 2000, w = 3500, res = 200)
+Idents(seuset_immune) <- "condition"
+VlnPlot(seuset_immune, features = c("Mt2", "Mt1"), ncol = 2,pt.size = 0.000005)
+dev.off()
+
+SaveH5Seurat(seuset_immune, filename = "TEPA_results/03_seusetImmuneModule.h5Seurat", overwrite = TRUE)
+ 
+# tumor object vs immune object Mt1 and Mt2
 
 

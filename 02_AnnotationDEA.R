@@ -8,6 +8,11 @@ library("Seurat")
 library("writexl")
 library('limma')
 library(dplyr)
+library("MAST")
+if (!require("RColorBrewer")) {
+  install.packages("RColorBrewer")
+  library(RColorBrewer)
+}
 
 
 setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
@@ -54,6 +59,10 @@ for(j in unique(sctype_scores$cluster)){
 }
 
 Idents(seuset_immune) <- seuset_immune@meta.data$scType
+
+# We decide to remove the cluster HLA-expressing cells since it is probably ambient RNA -> mixture of B cells and macrophage markers
+seuset_immune <- seuset_immune[,!seuset_immune$scType == "HLA-expressing cells"]
+levels(Idents(seuset_immune)) # now 14 clusters rather than 15
 
 png("TEPA_plots/02_umapAnn.png", w = 3000, h = 3000, res = 300)
 p <- DimPlot(object = seuset_immune, pt.size = 0.5, reduction = 'umap', ncol = 1,
@@ -115,7 +124,7 @@ immune.markers <- FindAllMarkers(seuset_immune,
 write.csv(immune.markers, "TEPA_results/02_DEA_clusterMarkers.csv")
 
 # Save results in different excel sheets 
-clusters = unique(Idents(seuset_immune))
+clusters = levels(Idents(seuset_immune))
 
 wb <- createWorkbook()
 for(c in 1:length(clusters)){
@@ -142,18 +151,17 @@ for (cluster in unique(seuset_immune$celltype)){
                                        ident.1 = ident1, ident.2 = ident2,
                                        logfc.threshold = 0.25, 
                                        only.pos = FALSE, verbose = FALSE,
-                                       test.use="MAST", latent.vars="orig.ident")
+                                       #latent.vars="orig.ident",
+                                       min.cells.feature = 1, min.cells.group = 1, min.pct = 0,
+                                       test.use="MAST")
     sheets[[cluster]] <- as.data.frame(condition.diffgenes)
     
     # Needed for plotting
-    write.csv(condition.diffgenes, file=paste0("TEPA_results/02_DEAcluster",cluster,".csv"))
+    write.csv(condition.diffgenes, file=paste0("TEPA_results/02_DEAclusterMAST",cluster,".csv"))
   })
 }
 # Needed for manual curation
-openxlsx::write.xlsx(sheets, "TEPA_results/02_DEA_TEPA.xlsx", rowNames=TRUE)
-
-SaveH5Seurat(seuset_immune, filename = "TEPA_results/02_immuneAnn.h5Seurat", overwrite = TRUE)
-
+openxlsx::write.xlsx(sheets, "TEPA_results/02_DEA_TEPA_MAST.xlsx", rowNames=TRUE)
 
 
 
