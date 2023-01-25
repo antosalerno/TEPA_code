@@ -145,14 +145,14 @@ DefaultAssay(seuset_immune) <- "RNA"
 sheets <- list()
 for (cluster in unique(seuset_immune$celltype)){
   try({
-    ident1 <- paste0(cluster,"_Control")
-    ident2 <- paste0(cluster,"_Treatment")
+    ident1 <- paste0(cluster,"_Treatment")
+    ident2 <- paste0(cluster,"_Control")
     condition.diffgenes <- FindMarkers(seuset_immune, 
                                        ident.1 = ident1, ident.2 = ident2,
                                        logfc.threshold = 0.25, 
                                        only.pos = FALSE, verbose = FALSE,
                                        #latent.vars="orig.ident",
-                                       min.cells.feature = 1, min.cells.group = 1, min.pct = 0,
+                                       min.cells.feature = 1, min.cells.group = 1, 
                                        test.use="MAST")
     sheets[[cluster]] <- as.data.frame(condition.diffgenes)
     

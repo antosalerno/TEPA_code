@@ -21,7 +21,7 @@ for (cluster in clusters){
                        y = 'p_val_adj',
                        xlim = c(-2.5, 2.5),
                        title = paste0(cluster,', TEPA vs. CTRL '),
-                       pCutoff = 0.1, #0.05 cutoff
+                       pCutoff = 0.05, #0.05 cutoff
                        FCcutoff = 0.25, # 2-fold change
                        labFace = "bold",
                        labSize = 3,
@@ -31,7 +31,7 @@ for (cluster in clusters){
                        legendIconSize = 4.0,
                        drawConnectors = TRUE,
                        widthConnectors = 0.3,colConnectors = 'gray51', maxoverlapsConnectors = 80,
-                       caption = paste0('Upregulated = ', nrow(res[res$avg_log2FC>0.75&res$p_val_adj<=0.05,]), ' genes',
-                                        "\n",'Downregulated = ', nrow(res[res$avg_log2FC< -0.75&res$p_val_adj<=0.05,]), ' genes'))+ theme(plot.title = element_text(hjust = 0.5)) + coord_flip()
-  ggsave(p, file=paste0("TEPA_plots/04_DEAcluster_",cluster,".png"), width = 16, height = 22, units = "cm")
+                       caption = paste0('Upregulated = ', nrow(res[res$avg_log2FC>0.5&res$p_val_adj<=0.05,]), ' genes',
+                                        "\n",'Downregulated = ', nrow(res[res$avg_log2FC< -0.5&res$p_val_adj<=0.05,]), ' genes'))+ theme(plot.title = element_text(hjust = 0.5)) + coord_flip()
+  ggsave(p, file=paste0("TEPA_plots/04_DEAcluster_",cluster,".png"), width = 20, height = 25, units = "cm")
 }
