@@ -12,46 +12,51 @@ library("Seurat")
 library("SeuratData")
 library("SeuratDisk")
 library(readr)
-library("DESeq2")
 library(stringr)
 library(organism, character.only = TRUE)
 library(GOSemSim)
 library("GOfuncR")
 library(clusterProfiler)
-library("pathview")
-library(enrichplot)
+# library("pathview")
+# library(enrichplot)
 library(ggplot2)
-library("AnnotationDbi")
-require(DOSE)
-source("TEPA_code/supportFunctions.R")
+# require(DOSE)
+library(ggcharts)
 
 
 setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
-seuset_immune <- LoadH5Seurat("TEPA_results/03_seusetImmuneModule.h5Seurat")
+source("TEPA_code/supportFunctions.R")
+
+seuset_immune <- LoadH5Seurat("TEPA_results/02_immuneAnn.h5Seurat")
 clusters = unique(seuset_immune@meta.data$scType)
 
-### DEA with less stringent method so we get more genes for GSEA ####
+### Final DEA with validated annotation ####
+Idents(seuset_immune) <- "scType"
+seuset_immune$celltype.tepa <- paste(Idents(seuset_immune), seuset_immune$condition, sep = "_")
+seuset_immune$celltype <- Idents(seuset_immune)
 Idents(seuset_immune) <- "celltype.tepa"
 DefaultAssay(seuset_immune) <- "RNA"
 
-#sheets <- list()
-for (cluster in unique(seuset_immune$celltype)){
+sheets <- list()
+for (cluster in unique(seuset_immune$scType)){
   try({
-    ident1 <- paste0(cluster,"_Control")
-    ident2 <- paste0(cluster,"_Treatment")
+    ident1 <- paste0(cluster,"_Treatment")
+    ident2 <- paste0(cluster,"_Control")
     condition.diffgenes <- FindMarkers(seuset_immune, 
                                        ident.1 = ident1, ident.2 = ident2,
                                        logfc.threshold = 0.25, 
                                        only.pos = FALSE, verbose = FALSE,
-                                       #latent.vars="orig.ident",
-                                       test.use="DESeq2")
-    #sheets[[cluster]] <- as.data.frame(condition.diffgenes)
+                                       min.cells.feature = 1, min.cells.group = 1,
+                                       test.use="MAST")
+    condition.diffgenes$p_val_adj = p.adjust(condition.diffgenes$p_val, method='BH')
+    sheets[[cluster]] <- as.data.frame(condition.diffgenes)
     
     # Needed for plotting
-    write.csv(condition.diffgenes, file=paste0("TEPA_results/02_DEAclusterDESEQ2",cluster,".csv"))
+    write.csv(condition.diffgenes, file=paste0("TEPA_results/02_DEAclusterMAST",cluster,".csv"))
   })
 }
-
+# Needed for manual curation
+openxlsx::write.xlsx(sheets, "TEPA_results/02_DEA_TEPA_MAST.xlsx", rowNames=TRUE)
 
 ### fgsea ####
 
@@ -74,6 +79,7 @@ fgsea_sets<- m_df %>% split(x = .$gene_symbol, f = .$gs_name)
 gseaGO(clusters, fgsea_sets)
 
 # 3 - Reactome database
+library("AnnotationDbi")
 
 gseaReact(clusters)
 
