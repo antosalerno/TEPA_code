@@ -17,7 +17,7 @@ immune.markers <- read.csv("TEPA_results/02_DEA_clusterMarkers.csv")
 DefaultAssay(seuset_immune) <- "RNA"
 
 # Search all isoforms of gene of interest
-grep(pattern = "Vegf", 
+grep(pattern = "Ifng", 
      x = rownames(x = seuset_immune@assays$RNA@data), 
      value = TRUE, ignore.case = TRUE)
 
@@ -168,6 +168,13 @@ png("TEPA_plots/03_Mt1Mt2_violin.png", h = 2000, w = 3500, res = 200)
 Idents(seuset_immune) <- "condition"
 VlnPlot(seuset_immune, features = c("Mt2", "Mt1"), ncol = 2,pt.size = 0.000005)
 dev.off()
+
+png("TEPA_plots/03_Ifngr_violin.png", h = 2000, w = 3500, res = 200)
+DefaultAssay(seuset_immune) <- "RNA"
+Idents(seuset_immune) <- "scType"
+VlnPlot(seuset_immune, features = "Ifngr1", split.by="condition", ncol = 1,pt.size = 0.000005)
+dev.off()
+
 
 SaveH5Seurat(seuset_immune, filename = "TEPA_results/03_seusetImmuneModule.h5Seurat", overwrite = TRUE)
  
