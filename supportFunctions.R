@@ -3,7 +3,7 @@
 # 5 - GSEA ####
 
 # @ version of clusterProfiler:: cnetplot
-networkPlotGSEA <- function(fgseaResPlot, ranked.genes, cluster, CNET_gene_cutoff = 5){
+networkPlotGSEA <- function(fgseaResPlot, ranked.genes, cluster, CNET_gene_cutoff = 6){
   out <- tryCatch({
     cnet <- clusterProfiler::cnetplot(fgseaResPlot, showCategory = CNET_gene_cutoff, 
                                       categorySize="p.adjust", foldChange = ranked.genes) + 
@@ -15,21 +15,21 @@ networkPlotGSEA <- function(fgseaResPlot, ranked.genes, cluster, CNET_gene_cutof
                             " Showing ",CNET_gene_cutoff," genes per pathway."))+
       theme(plot.title = element_text(hjust = 0.5, size=20),
             plot.subtitle = element_text(hjust = 0.5, size=15),
-            plot.caption = element_text(size=10))},
+            plot.caption = element_text(size=12))},
     finally = {
       return(cnet)
     })
   return(out)
 }
 
-gseaBarPlot <- function(fgseaRes){
+barPlotGSEA <- function(fgseaRes, cluster){
   
   diverging_bar_chart(fgseaRes, pathway, as.numeric(NES), 
                       bar_color = c("#F9AF93", "#9BD6F0"),
                       text_color = "black") +
     ylab("Normalized enrichment score") +
     geom_hline(yintercept = 0, color = 1, lwd = 0.2) +
-    ggtitle(paste0("Top pathways in ", cluster," enriched by GSEA using GO database")) + 
+    ggtitle(paste0("Enriched pathways in ", cluster," enriched by GSEA using GO database")) + 
     theme(plot.title = element_text(hjust = 0.5)) + 
     theme(axis.title=element_text(size=20)) +
     theme_minimal() +
@@ -70,7 +70,7 @@ gseaGO <- function(clusters, fgsea_sets){
       ggsave(cnet, file=paste0("TEPA_plots/05_clProf_cnetGO_",cluster,".png"), width = 30, height = 30, units = "cm")
       
       ## Barplot
-      b <- gseaBarPlot(fgseaRes)
+      b <- barPlotGSEA(fgseaRes, cluster)
       ggsave(b, file=paste0("TEPA_plots/05_clProf_barplotGO_",cluster,".png"),width = 20, height = nrow(fgseaRes)/1.5, units = "cm")
       
       # Save dataframe
@@ -119,10 +119,12 @@ gseaReact <- function(clusters){
         ggsave(cnet, file=paste0("TEPA_plots/05_clProf_cnetReactome_",cluster,".png"), width = 20, height = 20, units = "cm")
         
         ## Barplot
-        b <- gseaBarPlot(fgseaRes)
-        ggsave(b, file=paste0("TEPA_plots/05_clProf_barplotGO_",cluster,".png"),width = 20, height = nrow(fgseaRes)/1.5, units = "cm")
+        b <- barPlotGSEA(fgseaRes, cluster)
+        ggsave(b, file=paste0("TEPA_plots/05_clProf_barplotReactome_",cluster,".png"),width = 20, height = nrow(fgseaRes)/1.5, units = "cm")
         
-        write.csv(fgseaRes, 
+        # Save dataframe
+        df <- apply(fgseaRes,2,as.character)
+        write.csv(df, 
                   file = paste0("TEPA_results/05_GSEAclusterReactome",cluster,".csv"))
       }
     }
