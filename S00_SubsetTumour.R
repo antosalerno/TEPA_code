@@ -9,8 +9,10 @@ library(dplyr)
 library(SeuratDisk)
 library(SeuratData)
 library(RColorBrewer)
+library("ggsignif")
 
 setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
+source("TEPA_code/supportFunctions.R")
 
 #### 1 - Create Seurat object with all the samples ####
 
@@ -43,19 +45,17 @@ seuset$sampleType <- ifelse(test = seuset$orig.ident %in% c("TM", "CM"), yes = "
 
 # table(seuset$orig.ident)
 
-# save(seuset, file = "TEPA_results/00_rawcounts.rda")
-SaveH5Seurat(seuset, filename = "TEPA_results/00_rawcounts.h5Seurat", overwrite = TRUE)
+SaveH5Seurat(seuset, filename = "TEPA_results/S00_rawcounts.h5Seurat", overwrite = TRUE)
 
 #### 2 - Data pre-processing ####
 
-# load("TEPA_results/00_rawcounts.rda")
-seuset <- LoadH5Seurat("TEPA_results/00_rawcounts.h5Seurat")
+seuset <- LoadH5Seurat("TEPA_results/S00_rawcounts.h5Seurat")
 
-png("TEPA_plots/00_preFilterQC_violin.png", h = 3000, w = 4200, res = 300)
+png("TEPA_plots/S00_preFilterQC_violin.png", h = 3000, w = 4200, res = 300)
 VlnPlot(seuset, features = c("nFeature_RNA", "nCount_RNA", "Mycn"), ncol = 3, pt.size = 0.000005)
 dev.off()
 
-png("TEPA_plots/00_preFilterQC_Mycn_Cd45.png", h = 3000, w = 4200, res = 300)
+png("TEPA_plots/S00_preFilterQC_Mycn_Cd45.png", h = 3000, w = 4200, res = 300)
 FeatureScatter(seuset, feature1 = "Mycn", feature2 = "Ptprc", pt.size = 0.0005)
 dev.off()
 
@@ -63,7 +63,6 @@ dev.off()
 seuset <- NormalizeData(seuset) 
 
 # We only carry out filtering for immune cells after separating the tumour
-
 
 #### 3 - Dimensionality reduction ####
 
@@ -82,54 +81,43 @@ head(cum, n=40) # Select 40 PCs to retain 62.76% of variability
 seuset <- FindNeighbors(object = seuset, dims = 1:40, reduction = 'pca')
 seuset <- RunUMAP(seuset, dims = 1:40, reduction = "pca", verbose = FALSE)
 
-png("TEPA_plots/00_umapExplore.png", w = 4000, h = 2000, res = 300)
+png("TEPA_plots/S00_umapExplore.png", w = 4000, h = 2000, res = 300)
 DimPlot(object = seuset, pt.size = 0.0005, reduction = 'umap', ncol = 2,
         group.by = c("orig.ident", "condition"), label = TRUE) +
   ggtitle(paste(as.character(nrow(seuset@meta.data)), " cells")) +
   theme(plot.title = element_text(hjust = 0.5))
 dev.off()
 
-png("TEPA_plots/00_umapCounts.png", w = 4000, h = 2000, res = 300)
+png("TEPA_plots/S00_umapCounts.png", w = 4000, h = 2000, res = 300)
 FeaturePlot(seuset, features = c("nCount_RNA", "nFeature_RNA"), min.cutoff = "q10", max.cutoff = "q90")
 dev.off()
 
-png("TEPA_plots/00_umapMycnPtprc.png", h = 2000, w = 4000, res = 300)
+png("TEPA_plots/S00_umapMycnPtprc.png", h = 2000, w = 4000, res = 300)
 FeaturePlot(seuset, ncol = 2, pt.size = 0.0005,
             features = c("Mycn", "Ptprc"), label = TRUE, repel = TRUE) &
   scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
 dev.off()
 
-SaveH5Seurat(seuset, filename = "TEPA_results/00_seusetRed.h5Seurat", overwrite = TRUE)
+SaveH5Seurat(seuset, filename = "TEPA_results/S00_seusetRed.h5Seurat", overwrite = TRUE)
 
-#### 4 - Identify tumour cells ####
+#### 4 - Identify tumor cells ####
 
-seuset <- LoadH5Seurat("TEPA_results/00_seusetRed.h5Seurat")
+seuset <- LoadH5Seurat("TEPA_results/S00_seusetRed.h5Seurat")
 
 table(seuset$orig.ident) # pre-subsetting: CF: 9100  CM: 7377  TF: 9412 TM: 11174 
 
-
-hist_dens <- function(x, breaks = "Scott", 
-                      main = "Mycn expression per number of cells",
-                      xlab = "Mycn", ylab = "Cell counts") {
-  dens <- density(x, na.rm = T)
-  raw_hist <- hist(x, breaks = breaks, plot = F)
-  scale <- max(raw_hist$counts)/max(raw_hist$density)
-  hist(x, breaks = breaks, prob = F, main = main, xlab = xlab, ylab = ylab)
-  lines(list(x = dens$x, y = scale * dens$y), col = "blue", lwd = 2)
-}
-
-png("TEPA_plots/00_MycnDistribution.png", h = 3000, w = 4200, res = 300)
+png("TEPA_plots/S00_MycnDistribution.png", h = 3000, w = 4200, res = 300)
 X <- colSums(seuset["Mycn",])
 hist_dens(X, breaks = 100)
 dev.off()
 
 tumorCells1 <- subset(seuset[,seuset$sampleType == "Full"], Mycn > 0 & Ptprc == 0)
-tumorCells2 <- subset(tumorCells[,tumorCells$sampleType == "Full"], 
+tumorCells2 <- subset(tumorCells1[,tumorCells1$sampleType == "Full"], 
                      Cd3d > 0 | Cd3e > 0 | Cd3g > 0 | Cd8a > 0 | Cd8b1 > 0, invert = TRUE) # 13560 cells: 169 lymphocytic cells rescued
-immuneCells <- setdiff(Cells(tumorCells1), Cells(tumorCells2))
+immuneCells <- setdiff(Cells(tumorCells1), Cells(tumorCells2)) # rescued lymphocytes
 seuset$class <- ifelse(test = colnames(seuset) %in% append(Cells(tumorCells1), Cells(tumorCells2)), "tumorCells", "noClass")
 
-png("TEPA_plots/00_tumorCells.png", h = 2000, w = 4000, res = 300)
+png("TEPA_plots/S00_tumorCells.png", h = 2000, w = 4000, res = 300)
 FeaturePlot(seuset[,seuset$class == "tumorCells"], ncol = 2, pt.size = 0.005,
             features = c("Mycn","Ptprc"), label = TRUE, repel = TRUE) &
   scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
@@ -138,13 +126,13 @@ dev.off()
 immuneCells <- append(immuneCells, Cells(subset(seuset[,seuset$sampleType == "Full"], Ptprc > 0 & Mycn == 0)))
 immuneCells <- append(immuneCells, Cells(subset(seuset[,seuset$sampleType == "Myeloid"])))
 seuset$class <- ifelse(test = colnames(seuset) %in% immuneCells, "immuneCells", seuset$class)
-seuset$class <- ifelse(test = colnames(seuset) %in% Cells(append(tumorCells,immuneCells)), "noClass", seuset$class)
+seuset$class <- ifelse(test = colnames(seuset) %in% Cells(append(tumorCells2,immuneCells)), "noClass", seuset$class)
 
 pt <- table(Idents(seuset), seuset$class)
 pt <- as.data.frame(pt)
 pt$Var1 <- as.character(pt$Var1)
 
-png(paste0("TEPA_plots/00_classMemberMycnPtprc.png"), w=2500,h=2500, res=300)
+png(paste0("TEPA_plots/S00_classMemberMycnPtprc.png"), w=2500,h=2500, res=300)
 ggplot(pt, aes(x = Var2, y = Freq, fill = Var1)) +
   theme_bw(base_size = 15) +
   geom_col(position = "fill", width = 0.5) +
@@ -156,31 +144,50 @@ ggplot(pt, aes(x = Var2, y = Freq, fill = Var1)) +
   theme(legend.title = element_blank())
 dev.off()
 
-png("TEPA_plots/00_noClass_MycnPtprc.png", h = 3000, w = 4200, res = 300)
+png("TEPA_plots/S00_noClass_MycnPtprc.png", h = 3000, w = 4200, res = 300)
 FeatureScatter(seuset[,seuset$class == "noClass"], feature1 = "Mycn", feature2 = "Ptprc", pt.size = 1)
 dev.off()
 
-SaveH5Seurat(seuset, filename = "TEPA_results/00_seusetClass.h5Seurat", overwrite = TRUE)
+SaveH5Seurat(seuset, filename = "TEPA_results/S00_seusetClass.h5Seurat", overwrite = TRUE)
 
 ### 5 -  Select only immune cells ####
 
-seuset <- LoadH5Seurat("TEPA_results/00_seusetClass.h5Seurat")
+seuset <- LoadH5Seurat("TEPA_results/S00_seusetClass.h5Seurat")
 
+# remove noClass 
+seuset <- subset(seuset, class != "noClass")
+
+png("TEPA_plots/S00_PrnpByClass.png", h = 3000, w = 4200, res = 500)
+VlnPlot(seuset, features = c("Prnp"), split.by = "condition" , group.by = "class",
+        ncol = 1, pt.size = 0.0005)
+dev.off()
+
+png("TEPA_plots/S00_Mt1ByClass.png", h = 3000, w = 4200, res = 500)
+VlnPlot(seuset, features = c("Mt1"), split.by = "condition" , group.by = "class",
+        ncol = 1, pt.size = 0.0005) +
+  ylim(0,5) +
+  geom_signif(xmin = 1.8, xmax = 2.2, y_position = 4.75, annotations="***")
+dev.off()
+
+# Tumor cells
+tumor <- seuset[,seuset$class == "tumorCells"]
+table(tumor$orig.ident) 
+SaveH5Seurat(tumor, filename = "TEPA_results/S00_tumor.h5Seurat", overwrite = TRUE)
+
+# Immune cells
 immune <- seuset[,seuset$class == "immuneCells"]
-
 table(immune$orig.ident) 
 # post-subsetting all samples: CF: 2147 CM: 7377  TF: 1484 TM: 11174
 
-png("TEPA_plots/00_immuneCells_MycnPtprc.png", h = 3000, w = 4200, res = 300)
+png("TEPA_plots/S00_immuneCells_MycnPtprc.png", h = 3000, w = 4200, res = 300)
 FeatureScatter(immune, feature1 = "Mycn", feature2 = "Ptprc", pt.size = 1)
 dev.off()
 
-png("TEPA_plots/00_postFilterImmune_violin.png", h = 3000, w = 4200, res = 300)
+png("TEPA_plots/S00_postFilterImmune_violin.png", h = 3000, w = 4200, res = 300)
 VlnPlot(immune, features = c("nFeature_RNA", "nCount_RNA", "Mycn"), ncol = 3, pt.size = 0.000005)
 dev.off()
 
-# save(immune, file = "TEPA_results/00_immune.rda")
-SaveH5Seurat(immune, filename = "TEPA_results/00_immune.h5Seurat", overwrite = TRUE)
+SaveH5Seurat(immune, filename = "TEPA_results/S00_immune.h5Seurat", overwrite = TRUE)
 
 
 
