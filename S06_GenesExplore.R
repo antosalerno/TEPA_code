@@ -104,7 +104,6 @@ Idents(seuset_immune) <- "scType"
 fig <- VlnPlot(seuset_immune, features = c("Mt1"), 
                split.by = "condition", ncol = 1, pt.size = 0.000005)
 fig +  ylim(0, 5) +
-  #geom_signif(xmin = 11.75, xmax = 12.25, y_position = 3.5, annotations="*") +
   geom_signif(xmin = 0.75, xmax = 1.25, y_position = 3.75, annotations="***") +
   geom_signif(xmin = 4.75, xmax = 5.25, y_position = 4.5, annotations="***")
 dev.off()
@@ -117,8 +116,15 @@ dev.off()
 
 #### Create a signature of copper-related genes ####
 
+copper_genes <- c("Slc31a1", "Atp7a", "Atp7b", "Sco1", "Cox11", "Steap3", "Commd1", "Mtf1", "Mtf2", "Sp1", "Sod1",
+                  "Sod2", "Steap4", "Atox1", "Ccs", "Mt1", "Mt2", "Mt3", "Fdx1", "Lias", "Lipt1", "Dld", "Dlat",
+                  "Pdha1", "Pdhb",  "Gls", "Cdkn2a")
 
-
-
-
+Idents(seuset_immune) <- "scType"
+png("TEPA_plots/S06_immuneGenesCopper.png", h = 2000, w = 2500, res = 300)
+DotPlot(object = seuset_immune, features = copper_genes, split.by = "condition",
+        scale=TRUE, col.min = -4, col.max = 4, 
+        dot.min = 0, dot.scale = 5, cols = c("blue","red")) + RotatedAxis() + coord_flip() +
+  theme(axis.text.x = element_text(size=7), axis.text.y = element_text(size=7))
+dev.off()
 

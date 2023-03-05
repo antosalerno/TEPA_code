@@ -14,6 +14,9 @@ library("org.Mm.eg.db", character.only = TRUE)
 library(clusterProfiler)
 library(ggplot2)
 library(ggcharts)
+library("EnhancedVolcano")
+library(clusterProfiler)
+library(pheatmap)
 
 setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
 source("TEPA_code/supportFunctions.R")
@@ -41,31 +44,78 @@ fgsea_sets <- append(sets1, sets5)
 #fgsea_sets <- append(fgsea_sets, sets5)
 
 #### 2 - Add custom gene set signatures ####
+# Search all isoforms of gene of interest
+grep(pattern = "Ccl16", 
+     x = rownames(x = seuset_immune@assays$RNA@data), 
+     value = TRUE, ignore.case = TRUE)
 
-N1 <- c("Icam1", "Cxcl10",  "Fas", "Tnf", "Ifng", "Ccl3", "Cxcl9", "Il12a", "Tnfaip2", "Cebpb",
-        "Hif1a", "Tnfaip8", "Tnfaip1", "Tnfaip3", "Tnfaip6", "Tnfaip8l1", "Tnfaip8l2", 
-        "Tnfaip8l3", "Ifit3", "Ifitm1", "Ifitm6", "Ifit1bl1", "Ifit2", "Ifit3", "Ifit3b", "Ifitm10", "Ifitm2", 
-        "Ifitm3", "Ifitm5", "Ifitm6", "Ifitm7", "Ifit1bl2", "Ifi27l2a", "Il6ra", "Il15",
-        "Il12b", "Csf2", "Cxcl1", "Cxcl2", "Cxcl3", "Ccl4", "Cxcl11", "Cxcl1", "Ccl7", "Il18", "Il18bp",
-        "Isg15", "Isg20", "Isg20l2")
 
-N2 <- c("Il1rn","Tgfb1", "Tgfb1i1","Tgfb2", "Tgfb3", "Tgfbi", "Ccl2", "Mpo", "Cxcr4", 
-        "Ccl5", "Slc27a2", "Ccl17", "Cxcl14", "Arg1", "Stat3", "Irf8", "Il17a", "Il17b","Il17c", "Il17d", "Il17f")
+N1 <- c("Icam1", "Cxcl10",  "Fas", "Tnf", "Ifng", "Ccl3",  "Il12a", "Tnfaip2", "Cebpb",
+        "Hif1a","Tnfaip3",  "Ifitm6", "Ifit2", "Ifit3", "Ifit3b", "Ifitm10", "Ifitm2", 
+        "Ifitm3", "Ifitm5", "Ifitm6", "Ifit1bl2", "Il6ra", "Il15",
+         "Csf2", "Cxcl1", "Cxcl2", "Cxcl3", "Ccl4", "Ccl7", "Il18", "Il18bp",
+        "Isg15", "Isg20", "Isg20l2", "S100a8", "S100a9", "Il1a", "Ccl9", "Ccl17", "Cxcl16",
+        "Acod1", "Il1b", "Il10", "Myd88", "Prkcd", "Mmp8", "Retnlg", "Arg2")
 
+N2 <- c("Il1rn","Tgfb1", "Tgfb1i1","Tgfb2", "Tgfb3", "Tgfbi", "Ccl2", "Mpo", 
+        "Slc27a2", "Ccl17", "Cxcl14", "Arg1", "Stat3", "Il17a",
+        "Il2", "Mrc1", "Chil3", "Cxcl15",  "Mmp9",
+        "Elane", "Ctsg", "Retnla", "Ifitm1")
+
+# Il8 = Cxcl15
 # https://www.sciencedirect.com/science/article/pii/S1535610809002153?via%3Dihub
 # https://www.sciencedirect.com/science/article/pii/S1471490605002425
 # https://ashpublications.org/blood/article/133/20/2159/273823/Neutrophil-plasticity-in-the-tumor
+# https://www.researchgate.net/figure/Transcriptomic-analysis-reveals-distinct-expression-signatures-during-neutrophil_fig3_364673856
+# https://www.frontiersin.org/articles/10.3389/fimmu.2021.708770/full
+# https://www.tandfonline.com/doi/pdf/10.1080/2162402X.2016.1232221
 
-M1 <- c("Il12a", "Il12b", "Tnf", "Cxcl9", "Cxcl10", "Tlr2", "Tlr4", "Fcgr3", "Fcgr4", "Fcgr1",
-        "Fcgr2b", "Cd80", "Cd86", "Il12a", "Il12b", "Il6", "Il1a", "Ccl2", "Ccl3", "Ccl4", "Ccl5",
-        "Cxcl8", "Cxcl9", "Cxcl10", "Cxcl11", "Ccr7")
-M2 <- c("Il10", "Il1ra", "Ccl22", "Ccl24",  "Il4", "Il13", "Ccl16", 
-        "Fcer2a", "Cd163", "Cxcr1", "Cxcr2", "Ccr2", "Arg1", "Il1rn")
+M1 <- c("Il12a", "Il12b", "Tnf", "Cxcl10", "Tlr2", "Tlr4", "Fcgr3", "Fcgr4", "Fcgr1",
+         "Cd80", "Cd86", "Il12a",  "Il6", "Il1a", "Ccl2", "Ccl3", "Ccl4", "Ccl5",
+        "Cxcl9", "Cxcl10", "Ccr7", "Il1b", "Nos2", "Cxcl16", "Il23a")
+M2 <- c("Il10", "Ccl22", "Il4ra", "Il13ra1", "Chil3", "Cd163", "Tgfb1",
+        "Fcer2a", "Cd163", "Cxcr1", "Cxcr2", "Ccr2", "Arg1",  "Cd209a", "Mrc1", "Fcgr2b")
 
 # https://www.sciencedirect.com/science/article/pii/S1471490602023025
+# https://link.springer.com/protocol/10.1007/978-1-0716-0802-9_10/tables/1
+# https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3448669/
+
+Idents(seuset_immune) <- "scType"
+png("TEPA_plots/S04_customSignatures.png", h = 4000, w = 2500, res = 300)
+DotPlot(object = seuset_immune, features = unique(c(N1,N2)),
+        scale=TRUE, col.min = -4, col.max = 4, assay = "RNA",
+        dot.min = 0, dot.scale = 5, cols = c("blue","red")) + RotatedAxis() + coord_flip() +
+  theme(axis.text.x = element_text(size=7), axis.text.y = element_text(size=7))
+dev.off()
+
+Idents(seuset_immune) <- "scType"
+png("TEPA_plots/S04_customSignatures.png", h = 4000, w = 2500, res = 300)
+neutroCells <- seuset_immune[seuset_immune@meta.data$scType == "Neutrophils",]
+DoHeatmap(object = neutroCells, raster = TRUE, 
+          assay = "integrated", features = unique(c(N1,N2))) + RotatedAxis() + coord_flip() +
+  theme(axis.text.x = element_text(size=7), axis.text.y = element_text(size=7))
+dev.off()
+
+assayData <- GetAssayData(seuset_immune, assay = "integrated", slot = "scale.data")
+assayN1 <- assayData[rownames(assayData) %in% N1, ]
+heatCor <- cor(assayN1)
+pheatmap(heatCor, annotation = cluster_metadata[, c("group_id"), drop=F])
+
+pheatmap(heatCor,
+         scale = "row", 
+         show_rownames = FALSE, show_colnames = FALSE,
+         border_color = NA,
+         clustering_method = "average",
+         clustering_distance_rows = "correlation",
+         clustering_distance_cols = "correlation",
+         cutree_cols = 2, cutree_rows = 2,
+         breaks = seq(-3, 3, 0.05),
+         color = colorRampPalette(c("purple3", "black", "yellow2"))(120),
+         annotation = seuset_immune@meta.data$scType)
 
 
-# Check if custom pathways match publicily available gene sets
+
+# Check if custom pathways match publicly available gene sets
 pathways <- groupGO(M2, OrgDb = "org.Mm.eg.db", ont = "BP", keyType = "SYMBOL", level = 1, readable = T)
 pathways@result$Description # just biological process...
 
