@@ -95,6 +95,24 @@ plotVolcano <- function(clusters, res=NULL, type = "condition",
 
 # S05 - GSEA ####
 
+N1 <- c("S100a8", "S100a9", "Icam1", "Fas", "Tnf", "Isg15", "Isg20", 
+        "Ccl3", "Ccl4",  "Cxcl2", "Cxcl3", "Cebpb", "Il1a" ,"Il1b", "Il1r2", "Il1rn", "Il6ra", "Il15",
+        "Stat3", "Hif1a", "Ifitm1","Ifitm2",  "Ifitm3", "Ifitm6",  
+        "Acod1", "Myd88", "Prkcd", "Mmp8", "Mmp9","Retnlg", "Arg2")
+N2 <- c("Tgfb1", "Tgfb1i1","Tgfb2", "Tgfb3", "Ccl2",  "Ccl17","Cxcl14", 
+        "Cxcl15",  "Il1r1", "Il2", "Il17a", "Mpo", "Slc27a2", "Arg1", 
+        "Mrc1", "Chil3", "Elane", "Ctsg", "Retnla")
+M1 <- c("Il12a", "Il12b", "Tnf", "Cxcl10", "Tlr2", "Tlr4", "Fcgr3", "Fcgr4", "Fcgr1",
+        "Cd80", "Cd86", "Il12a",  "Il6", "Il1a", "Ccl2", "Ccl3", "Ccl4", "Ccl5",
+        "Cxcl9", "Cxcl10", "Ccr7", "Il1b", "Nos2", "Cxcl16", "Il23a")
+M2 <- c("Il10", "Ccl22", "Il4ra", "Il13ra1", "Chil3", "Cd163", "Tgfb1",
+        "Fcer2a", "Cd163", "Cxcr1", "Cxcr2", "Ccr2", "Arg1",  "Cd209a", "Mrc1", "Fcgr2b")
+
+custom <- list(N1, N2, M1, M2)
+names(custom) <- c("N1 ANTI-TUMOR NEUTROPHILS", "N2 PRO-TUMOR NEUTROPHILS",
+                   "M1 ANTI-TUMOR MACROPHAGES", "M2 PRO-TUMOR MACROPHAGES")
+
+
 # @ version of clusterProfiler:: cnetplot
 networkPlotGSEA <- function(fgseaResPlot, ranked.genes, cluster, CNET_gene_cutoff = 6){
   out <- tryCatch({
@@ -172,17 +190,21 @@ barPlotGSEA <- function(fgseaRes, cluster = NULL, name = "", byType = FALSE){
 
 # Run fgsea function from DEA results using GO database and produce networkPlot and barPlot 
 gseaRES <- function(clusters, markers = NULL, fgsea_sets, minSize = 12, adj = TRUE, 
-                    type = "condition", immune = TRUE, save=""){
+                    type = "condition", input = "immune", save=""){
   for (cluster in clusters){
     try({
       if (type == "condition"){
-        if(immune){
+        if(input == "immune"){
           
           file=paste0("TEPA_results/S03_immuneBulkDEA.csv")
           #file=paste0("TEPA_results/S03_immuneCond_DEA_",cluster,".csv")
-        } else {
+        } else if (input == "tumor"){
             file=paste0("TEPA_results/S05_tumorCond_DEA_",cluster,".csv")
-        } 
+        } else if (input == "nanoCond"){
+            file = paste0("TEPA_results/N00_nanoCond_gInf_DEA.csv")
+        } else if (input == "nanoInf"){
+            file = paste0("TEPA_results/N00_nanoInf_gCond_DEA.csv")
+        }
         res <- read.csv(file = file, sep=",")
       } else if (type == "markers") {
         res <- markers[markers$cluster == cluster,]

@@ -10,7 +10,8 @@ library(GeomxTools)
 library(GeoMxWorkflows)
 library(ggplot2)
 
-# The ROIs 37,38,94,95,96 have been removed for the quality of the samples: necrotic tumor
+# The ROIs 37,38,93, 94,95 have been removed for the quality of the samples: necrotic tumor
+# We discard also the quality control samples Kidney and Liver from the analysis 
 
 ### 1 - Load data ####
 setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
@@ -27,7 +28,9 @@ data <- readNanoStringGeoMxSet(dccFiles = DCCFiles,
                                phenoDataSheet = "Template",
                                phenoDataDccColName = "Sample_ID",
                                protocolDataColNames = c("area", "roi", "Tissue", "Group", 
-                                                        "Core", "Infiltration"),
+                                                        "Core", "Infiltration", 
+                                                        "AOISurfaceArea", "AOINucleiCount",
+                                                        "ROICoordinateX", "ROICoordinateY"),
                                experimentDataColNames = c("Core", "aoi"))
   
 ### 2 - Study Design ####
@@ -65,9 +68,9 @@ p <- ggplot(test_gr, aes(x, id = id, split = y, value = n)) +
   scale_x_discrete(expand = expansion(0)) +
   labs(x = "", y = "") +
   annotate(geom = "segment", x = 3.25, xend = 3.25,
-           y = 0, yend = 114, lwd = 2) +
+           y = 0, yend = 105, lwd = 2) +
   annotate(geom = "text", x = 3.19, y = 63, angle = 90, size = 5,
-           hjust = 0.5, label = "108 ROIs")
+           hjust = 0.5, label = "100 ROIs")
 ggsave(p, file=paste0("TEPA_plots/", save, ".png"), width = 30, height = 30, units = "cm")
 
   
@@ -306,12 +309,11 @@ fData(target_data)$DetectionRate <-
   fData(target_data)$DetectedSegments / nrow(pData(target_data))
 
 # Genes of interest detection table 
-N1 <- c("Icam1", "Cxcl10",  "Fas", "Tnf", "Ifng", "Ccl3", "Cxcl9", "Il12a", "Tnfaip2", "Cebpb",
-        "Hif1a", "Tnfaip8", "Tnfaip1", "Tnfaip3", "Tnfaip6", "Tnfaip8l1", "Tnfaip8l2", 
-        "Tnfaip8l3", "Ifit3", "Ifitm1", "Ifitm6", "Ifit1bl1", "Ifit2", "Ifit3", "Ifit3b", "Ifitm10", "Ifitm2", 
-        "Ifitm3", "Ifitm5", "Ifitm6", "Ifitm7", "Ifit1bl2", "Ifi27l2a", "Il6ra", "Il15",
-        "Il12b", "Csf2", "Cxcl1", "Cxcl2", "Cxcl3", "Ccl4", "Cxcl11", "Cxcl1", "Ccl7", "Il18", "Il18bp",
-        "Isg15", "Isg20", "Isg20l2")
+
+N1 <- c("S100a8", "S100a9", "Icam1", "Fas", "Tnf", "Isg15", "Isg20", 
+        "Ccl3", "Ccl4",  "Cxcl2", "Cxcl3", "Cebpb", "Il1b", "Il1r2", "Il1rn", "Il6ra", "Il15",
+        "Stat3", "Hif1a", "Ifitm1","Ifitm2",  "Ifitm3", "Ifitm6",  
+        "Acod1", "Myd88", "Prkcd", "Mmp8", "Mmp9","Retnlg", "Arg2")
 
 goi_df <- data.frame(
   Gene = N1,

@@ -160,7 +160,7 @@ dev.off()
 
 ## D - Plot Volcano of each cluster vs all the others: 
 save = "S05_tumorMarkers"
-plotVolcano(clusters, res = tumor.markers, type = "markers", immune = F, log2FC = 0.5, save = save)
+plotVolcano(clusters, res = tumor.markers, type = "markers", input = "tumor", log2FC = 0.5, save = save)
 
 #### 3.2 - Intra-cluster DEA with annotated dataset - Treatment vs Control ####
 Idents(seuset_tumor) <- "seurat_clusters"
@@ -198,7 +198,7 @@ Idents(seuset_tumor) <- "seurat_clusters"
 clusters = unique(Idents(seuset_tumor))
 
 save = "S05_tumor_"
-plotVolcano(clusters, log2FC = 0.5, save = save, immune = FALSE)
+plotVolcano(clusters, log2FC = 0.5, save = save, input = "tumor")
 
 #### 3.3 DEA Treatment vs Control bulk dataset ####
 counts <- GetAssayData(seuset_tumor, assay = "RNA")
@@ -293,7 +293,7 @@ fgsea_sets <- append(fgsea_sets, custom)
 Idents(seuset_tumor) <- "seurat_clusters"
 clusters = unique(Idents(seuset_tumor))
 save = "S05_tumorEnrichment_"
-gseaRES(clusters, fgsea_sets = fgsea_sets, save = save, immune = FALSE)
+gseaRES(clusters, fgsea_sets = fgsea_sets, save = save, input = "tumor")
 
 #### 5 - Look at expression of specific genes ####
 

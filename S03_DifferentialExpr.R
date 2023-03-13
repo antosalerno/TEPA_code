@@ -66,6 +66,15 @@ DotPlot(object = seuset_immune, features = unique(markers), # split.by = "condit
   theme(axis.text.x = element_text(size=7), axis.text.y = element_text(size=7))
 dev.off()
 
+png("TEPA_plots/S03_immuneMarkersHeatmap.png", h = 4000, w = 6000, res = 300)
+top10 <- immune.markers %>% group_by(cluster) %>% top_n(n = 5, wt = avg_log2FC)
+DoHeatmap(object = subset(seuset_immune, downsample = 500), size = 6, 
+          assay = "integrated", features = top10$gene) +
+  scale_fill_gradientn(colors = c("blue", "black", "red")) + 
+  theme(axis.text = element_text(size=15)) + NoLegend() +
+  theme(plot.margin = margin(2,2,1.5,1.2, "cm"))
+dev.off()
+
 # D - Plot Volcano of each cluster vs all the others: 
 save = "S03_immuneMarkers"
 plotVolcano(clusters, res = immune.markers, type = "markers", df = "I",
