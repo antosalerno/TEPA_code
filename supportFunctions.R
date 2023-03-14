@@ -200,10 +200,12 @@ gseaRES <- function(clusters, markers = NULL, fgsea_sets, minSize = 12, adj = TR
           #file=paste0("TEPA_results/S03_immuneCond_DEA_",cluster,".csv")
         } else if (input == "tumor"){
             file=paste0("TEPA_results/S05_tumorCond_DEA_",cluster,".csv")
-        } else if (input == "nanoCond"){
+        } else if (input == "nanoCond_gInf"){
             file = paste0("TEPA_results/N00_nanoCond_gInf_DEA.csv")
-        } else if (input == "nanoInf"){
+        } else if (input == "nanoInf_gCond"){
             file = paste0("TEPA_results/N00_nanoInf_gCond_DEA.csv")
+        } else if (input == "nanoCond"){
+           file = paste0("TEPA_results/N00_nanoCond_DEA.csv")
         }
         res <- read.csv(file = file, sep=",")
       } else if (type == "markers") {

@@ -127,4 +127,3 @@ DotPlot(object = seuset_immune, features = copper_genes, split.by = "condition",
         dot.min = 0, dot.scale = 5, cols = c("blue","red")) + RotatedAxis() + coord_flip() +
   theme(axis.text.x = element_text(size=7), axis.text.y = element_text(size=7))
 dev.off()
-

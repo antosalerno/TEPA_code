@@ -9,15 +9,20 @@ library(NanoStringNCTools)
 library(GeomxTools)
 library(GeoMxWorkflows)
 library(ggplot2)
+library(ggcharts)
 library(MAST)
 library(openxlsx)
 library(patchwork)
 library(clusterProfiler)
 library("tibble")
+library("Seurat")
+library("SeuratDisk")
+library("fgsea")
 
 ### 1 - Load data ####
-source("TEPA_code/supportFunctions.R")
 setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
+source("TEPA_code/supportFunctions.R")
+
 datadir <- "TEPA_data"
 DCCFiles <- dir(file.path(datadir, "DCC"), pattern = ".dcc$",
                 full.names = TRUE, recursive = TRUE)
@@ -233,6 +238,10 @@ DoHeatmap(object = subset(seuset_nano, downsample = 500), size = 6,
   theme(plot.margin = margin(2,2,1.5,1.2, "cm"))
 dev.off()
 
+#### Differential expression analysis ####
+# Check in parallel expression of DEA genes in the different cell types
+seuset_immune <- LoadH5Seurat("TEPA_results/02_immuneAnn.h5Seurat")
+
 # 5.2 Infiltration vs Non-Infiltration given Treatment
 
 Idents(seuset_nano) <- "Infiltration"
@@ -267,6 +276,27 @@ p <- EnhancedVolcano(res, subtitle = "",
                      caption = paste0('Upregulated = ', nrow(res[res$avg_log2FC>log2FC&res$p_val_adj<=0.05,]), ' genes',
                                       "\n",'Downregulated = ', nrow(res[res$avg_log2FC< -log2FC&res$p_val_adj<=0.05,]), ' genes'))+ theme(plot.title = element_text(hjust = 0.5)) + coord_flip()
 ggsave(p, file=paste0("TEPA_plots/", save, "DEA.png"), width = 30, height = 25, units = "cm")
+
+ranked.genes<- res %>%
+  filter(p_val_adj < 0.05) %>%
+  arrange(desc(avg_log2FC))
+ranked.genes <- rownames(ranked.genes)[!is.na(rownames(ranked.genes))]
+
+png(paste0("TEPA_plots/",save,"DotPlot.png"), h = 2000, w = 2500, res = 300)
+DotPlot(object = seuset_immune, features = ranked.genes,  split.by = "condition",
+        scale=TRUE, dot.scale = 5,
+        assay = "RNA", cols = c("blue","red")) + RotatedAxis() + coord_flip() +
+  theme(axis.text.x = element_text(size=7), axis.text.y = element_text(size=7))
+dev.off()
+
+png(paste0("TEPA_plots/",save,"Heatmap.png"), h = 4000, w = 6000, res = 300)
+Idents(seuset_nano) <- "Infiltration"
+DoHeatmap(object = subset(seuset_nanoTEPA, downsample = 500), size = 6, 
+          features = head(ranked.genes, 20)) +
+  scale_fill_gradientn(colors = c("blue", "black", "red")) + 
+  theme(axis.text = element_text(size=15)) + NoLegend() +
+  theme(plot.margin = margin(2,2,1.5,1.2, "cm"))
+dev.off()
 
 # 5.4 Treatment vs Control given Infiltration
 
@@ -303,6 +333,27 @@ p <- EnhancedVolcano(res, subtitle = "",
                                       "\n",'Downregulated = ', nrow(res[res$avg_log2FC< -log2FC&res$p_val_adj<=0.05,]), ' genes'))+ theme(plot.title = element_text(hjust = 0.5)) + coord_flip()
 ggsave(p, file=paste0("TEPA_plots/", save, "DEA.png"), width = 30, height = 25, units = "cm")
 
+ranked.genes<- res %>%
+  filter(p_val_adj < 0.05) %>%
+  arrange(desc(avg_log2FC))
+ranked.genes <- rownames(ranked.genes)[!is.na(rownames(ranked.genes))]
+
+png(paste0("TEPA_plots/",save,"DotPlot.png"), h = 2000, w = 2500, res = 300)
+DotPlot(object = seuset_immune, features = ranked.genes,  split.by = "condition",
+        scale=TRUE, dot.scale = 5,
+        assay = "RNA", cols = c("blue","red")) + RotatedAxis() + coord_flip() +
+  theme(axis.text.x = element_text(size=7), axis.text.y = element_text(size=7))
+dev.off()
+
+png(paste0("TEPA_plots/",save,"Heatmap.png"), h = 4000, w = 6000, res = 300)
+Idents(seuset_nanoINF) <- "Condition"
+DoHeatmap(object = subset(seuset_nanoINF, downsample = 500), size = 6, 
+          features = head(ranked.genes, 20)) +
+  scale_fill_gradientn(colors = c("blue", "black", "red")) + 
+  theme(axis.text = element_text(size=15)) + NoLegend() +
+  theme(plot.margin = margin(2,2,1.5,1.2, "cm"))
+dev.off()
+
 # 5.5 Treatment vs Control
 
 Idents(seuset_nano) <- "Condition"
@@ -337,33 +388,69 @@ p <- EnhancedVolcano(res, subtitle = "",
                                       "\n",'Downregulated = ', nrow(res[res$avg_log2FC< -log2FC&res$p_val_adj<=0.05,]), ' genes'))+ theme(plot.title = element_text(hjust = 0.5)) + coord_flip()
 ggsave(p, file=paste0("TEPA_plots/", save, "DEA.png"), width = 30, height = 25, units = "cm")
 
+ranked.genes<- res %>%
+  filter(p_val_adj < 0.05) %>%
+  arrange(desc(avg_log2FC)) %>%
+  filter(avg_log2FC > abs(0.3))
+ranked.genes <- rownames(ranked.genes)[!is.na(rownames(ranked.genes))]
+
+png(paste0("TEPA_plots/",save,"DotPlot.png"), h = 2000, w = 2500, res = 300)
+DotPlot(object = seuset_immune, features = ranked.genes,  split.by = "condition",
+        scale=TRUE, dot.scale = 5,
+        assay = "RNA", cols = c("blue","red")) + RotatedAxis() + coord_flip() +
+  theme(axis.text.x = element_text(size=7), axis.text.y = element_text(size=7))
+dev.off()
+
+png(paste0("TEPA_plots/",save,"Heatmap.png"), h = 4000, w = 6000, res = 300)
+DoHeatmap(object = subset(seuset_nano, downsample = 500), size = 6, 
+          features = head(ranked.genes, 20)) +
+  scale_fill_gradientn(colors = c("blue", "black", "red")) + 
+  theme(axis.text = element_text(size=15)) + NoLegend() +
+  theme(plot.margin = margin(2,2,1.5,1.2, "cm"))
+dev.off()
+
+
 SaveH5Seurat(seuset_nano, filename = "TEPA_results/N00_seusetNanoRed.h5Seurat", overwrite = TRUE)
 
 #### 6 - Pathway enrichment Analysis ####
+seuset_nano <- LoadH5Seurat("TEPA_results/N00_seusetNanoRed.h5Seurat")
 
 ### 6.1 - Cluster markers
 ### 6.2 - Infiltration vs Non-Infiltration given Treatment
 
 sets1 <- read.gmt("TEPA_data/mh.all.v2022.1.Mm.symbols.gmt") # Mouse hallmark
-sets2 <- read.gmt("TEPA_data/REACTOME_NEUTROPHIL_DEGRANULATION.v2022.1.Mm.gmt") # The only Reactome pathway we're interested in
+#sets2 <- read.gmt("TEPA_data/m2.cp.reactome.v2022.1.Mm.symbols.gmt") # Reactome
+#sets3 <- read.gmt("TEPA_data/m8.all.v2023.1.Mm.symbols.gmt") # Cell types
+
 sets1$term <- as.character(sets1$term)
-sets2$term <- as.character(sets2$term)
+#sets2$term <- as.character(sets2$term)
+#sets3$term <- as.character(sets3$term)
+
 sets1 <- sets1 %>% split(x = .$gene, f = .$term)
-sets2 <- sets2 %>% split(x = .$gene, f = .$term)
-fgsea_sets <- append(sets1, sets2)
-fgsea_sets <- append(fgsea_sets, custom)
+#sets2 <- sets2 %>% split(x = .$gene, f = .$term)
+#sets3 <- sets3 %>% split(x = .$gene, f = .$term)
+
+#fgsea_sets <- append(sets1, sets2)
+#fgsea_sets <- append(fgsea_sets, sets3)
+fgsea_sets <- append(sets1, custom)
 
 save = "N00_infTEPA_Enrichment_"
 Idents(seuset_nano) <- "Infiltration"
 seuset_nanoINF <- subset(seuset_nano, Infiltration == "T")
 clusters = levels(Idents(seuset_nanoINF))
-gseaRES(clusters, fgsea_sets = fgsea_sets, save = save, input = "nanoInf")
+gseaRES(clusters, fgsea_sets = fgsea_sets, save = save, input = "nanoInf_gCond")
 
 ### 6.3 - Treatment vs Control given Infiltration
 save = "N00_TEPAInf_Enrichment_"
 Idents(seuset_nano) <- "Condition"
 seuset_nanoTEPA <- subset(seuset_nano, Condition == "Treatment")
 clusters = levels(Idents(seuset_nanoTEPA))
+gseaRES(clusters, fgsea_sets = fgsea_sets, save = save, input = "nanoCond_gInf")
+
+### 6.4 - Treatment vs Control given Infiltration
+save = "N00_TEPA_Enrichment_"
+Idents(seuset_nano) <- "Condition"
+clusters = levels(Idents(seuset_nano))
 gseaRES(clusters, fgsea_sets = fgsea_sets, save = save, input = "nanoCond")
 
 #### 7 - Spatial graphing ####
@@ -403,5 +490,13 @@ wrap_plots(plots)
 dev.off()
 
 # no spatial meaningggg
+
+
+
+
+
+
+
+
 
 
