@@ -98,19 +98,31 @@ plotVolcano <- function(clusters, res=NULL, type = "condition",
 N1 <- c("S100a8", "S100a9", "Icam1", "Fas", "Tnf", "Isg15", "Isg20", 
         "Ccl3", "Ccl4",  "Cxcl2", "Cxcl3", "Cebpb", "Il1a" ,"Il1b", "Il1r2", "Il1rn", "Il6ra", "Il15",
         "Stat3", "Hif1a", "Ifitm1","Ifitm2",  "Ifitm3", "Ifitm6",  
-        "Acod1", "Myd88", "Prkcd", "Mmp8", "Mmp9","Retnlg", "Arg2")
+        "Acod1", "Myd88", "Prkcd", "Mmp8", "Mmp9","Retnlg", "Arg2", "Sell")
 N2 <- c("Tgfb1", "Tgfb1i1","Tgfb2", "Tgfb3", "Ccl2",  "Ccl17","Cxcl14", 
         "Cxcl15",  "Il1r1", "Il2", "Il17a", "Mpo", "Slc27a2", "Arg1", 
-        "Mrc1", "Chil3", "Elane", "Ctsg", "Retnla")
+        "Mrc1", "Chil3", "Elane", "Ctsg", "Retnla", "Cxcl3", "Singlecf")
+
+# https://www.sciencedirect.com/science/article/pii/S1535610809002153?via%3Dihub
+# https://www.sciencedirect.com/science/article/pii/S1471490605002425
+# https://ashpublications.org/blood/article/133/20/2159/273823/Neutrophil-plasticity-in-the-tumor
+# https://urldefense.com/v3/__https://pubmed.ncbi.nlm.nih.gov/37001504/__;!!I9nncg!r5yciw1EwGP_GPPv2xDM4awc2iWXGyZrOLYVfYyun97DXla3h8RIigjJfJr93_YbCYZZUG74WDyzVrFnNwnB$
+
 M1 <- c("Il12a", "Il12b", "Tnf", "Cxcl10", "Tlr2", "Tlr4", "Fcgr3", "Fcgr4", "Fcgr1",
         "Cd80", "Cd86", "Il12a",  "Il6", "Il1a", "Ccl2", "Ccl3", "Ccl4", "Ccl5",
         "Cxcl9", "Cxcl10", "Ccr7", "Il1b", "Nos2", "Cxcl16", "Il23a")
 M2 <- c("Il10", "Ccl22", "Il4ra", "Il13ra1", "Chil3", "Cd163", "Tgfb1",
         "Fcer2a", "Cd163", "Cxcr1", "Cxcr2", "Ccr2", "Arg1",  "Cd209a", "Mrc1", "Fcgr2b")
 
+# https://www.sciencedirect.com/science/article/pii/S1471490602023025
+
 custom <- list(N1, N2, M1, M2)
 names(custom) <- c("N1 ANTI-TUMOR NEUTROPHILS", "N2 PRO-TUMOR NEUTROPHILS",
                    "M1 ANTI-TUMOR MACROPHAGES", "M2 PRO-TUMOR MACROPHAGES")
+
+copper_genes <- c("Slc31a1", "Atp7a", "Atp7b", "Sco1", "Cox11", "Steap3", "Commd1", "Mtf1", "Mtf2", "Sp1", "Sod1",
+                  "Sod2", "Steap4", "Atox1", "Ccs", "Mt1", "Mt2", "Mt3", "Fdx1", "Lias", "Lipt1", "Dld", "Dlat",
+                  "Pdha1", "Pdhb",  "Gls", "Cdkn2a")
 
 
 # @ version of clusterProfiler:: cnetplot
@@ -196,10 +208,11 @@ gseaRES <- function(clusters, markers = NULL, fgsea_sets, minSize = 12, adj = TR
       if (type == "condition"){
         if(input == "immune"){
           
-          file=paste0("TEPA_results/S03_immuneBulkDEA.csv")
-          #file=paste0("TEPA_results/S03_immuneCond_DEA_",cluster,".csv")
+          #file=paste0("TEPA_results/S03_immuneBulkDEA.csv")
+          file=paste0("TEPA_results/S03_immuneCond_DEA_",cluster,".csv")
         } else if (input == "tumor"){
-            file=paste0("TEPA_results/S05_tumorCond_DEA_",cluster,".csv")
+          file=paste0("TEPA_results/S05_tumorBulkDEA.csv")
+          #file=paste0("TEPA_results/S05_tumorCond_DEA_",cluster,".csv")
         } else if (input == "nanoCond_gInf"){
             file = paste0("TEPA_results/N00_nanoCond_gInf_DEA.csv")
         } else if (input == "nanoInf_gCond"){
@@ -214,16 +227,17 @@ gseaRES <- function(clusters, markers = NULL, fgsea_sets, minSize = 12, adj = TR
       } else {message("Please specify the type of analysis: either 'markers' or 'condition'")}
 
       message(paste0("GSEA for cluster: ", cluster))
-      ranked.genes<- deframe(res %>%
-                             #dplyr::filter(p_val_adj < 0.1) %>%
-                             arrange(desc(avg_log2FC)) %>% 
-                             dplyr::select(X, avg_log2FC))
+      ranked.genes.df<- res %>%
+                        arrange(desc(avg_log2FC)) %>% 
+                        dplyr::select(avg_log2FC, X)
+      ranked.genes <- ranked.genes.df$avg_log2FC
+      names(ranked.genes) <- ranked.genes.df$X
       ranked.genes <- ranked.genes[!is.na(names(ranked.genes))]
     
       # Run GSEA
       fgseaRes<- fgsea(fgsea_sets, stats = ranked.genes, minSize = minSize, maxSize = Inf)
       if (adj) {fgseaRes$padj = p.adjust(fgseaRes$pval, method='BH')}
-      fgseaRes <- fgseaRes[fgseaRes$padj <= 0.2] %>% arrange(desc(NES))
+      fgseaRes <- fgseaRes[fgseaRes$padj <= 0.05] %>% arrange(desc(NES))
       fgseaRes <- as.data.frame(fgseaRes)
     
       # Generate enrichment plots 
@@ -290,7 +304,7 @@ gseaPlotRes <- function(clusters, save=""){
 }
   
 
-gseaByType <- function(clusters, save){
+gseaByType <- function(clusters, save, custom_sign = FALSE){
   
   fgseaResByType <- data.frame(
     pathway = character(0),
@@ -299,7 +313,11 @@ gseaByType <- function(clusters, save){
   )
   for (cluster in clusters){
     index = which(clusters == cluster)
-    filename = paste0("TEPA_results/S04_immuneEnrichment_GSEA_",sub(" ", "_", cluster),".csv")
+    if (custom_sign){
+      filename = paste0("TEPA_results/S04_immuneEnrichmentCustom_GSEA_",sub(" ", "_", cluster),".csv")
+    } else{
+      filename = paste0("TEPA_results/S04_immuneEnrichment_GSEA_",sub(" ", "_", cluster),".csv")
+    } 
     if (file.exists(filename)){
       clusterFile <- read.csv(filename, sep = ",")
       if (ncol(clusterFile) == 2){
@@ -309,21 +327,21 @@ gseaByType <- function(clusters, save){
       }
       else {
         for (i in 1: nrow(clusterFile)){
-          fgseaResByType[nrow(fgseaResByType)+1,"pathway"] <- clusterFile[i,"pathway"]
-          fgseaResByType[nrow(fgseaResByType),"NES"] <- clusterFile[i,"NES"]
-          fgseaResByType[nrow(fgseaResByType),"cluster"] <- cluster
+          fgseaResByType[nrow(fgseaResByType)+1,]$pathway <- clusterFile[i,"pathway"]
+          fgseaResByType[nrow(fgseaResByType),]$NES <- clusterFile[i,"NES"]
+          fgseaResByType[nrow(fgseaResByType),]$cluster <- cluster
         }
       }
     }
   }
   
   # Save dataframe
-  df <- apply(fgseaResByType,2,as.character)
-  write.csv(df, file = paste0("TEPA_results/", save, ".csv"))
+  #df <- apply(fgseaResByType,2,as.character)
+  write.csv(fgseaResByType, file = paste0("TEPA_results/", save, ".csv"))
   
 }
 
-# Lots of time -> try Reactome as well
+ # Lots of time -> try Reactome as well
 gseaJointNet <- function (clusters, immune = TRUE, save=""){
   cell_types = list()
   for (cluster in clusters){
@@ -333,11 +351,14 @@ gseaJointNet <- function (clusters, immune = TRUE, save=""){
       file=paste0("TEPA_results/S07_tumorCond_DEA_",cluster,".csv")
     } 
     res <- read.csv(file = file, sep=",")
-    ranked.genes<- deframe(res %>%
-                             dplyr::filter(p_val_adj < 0.05) %>%
-                             dplyr::filter(avg_log2FC > 0.2) %>%
-                             arrange(desc(avg_log2FC)) %>% 
-                             dplyr::select(X, avg_log2FC))
+    ranked.genes.df<- res %>%
+      dplyr::filter(p_val_adj < 0.05) %>%
+      dplyr::filter(avg_log2FC > 0.2) %>%
+      arrange(desc(avg_log2FC)) %>% 
+      dplyr::select(avg_log2FC, X)
+    ranked.genes <- ranked.genes.df$avg_log2FC
+    names(ranked.genes) <- ranked.genes.df$X
+    
     # We take only significant positively enriched genes since we are running ORA
     if (length(ranked.genes) > 0){
       cell_types[cluster] <- list(names(ranked.genes))

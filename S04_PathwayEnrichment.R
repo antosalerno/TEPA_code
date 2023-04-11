@@ -28,22 +28,24 @@ immune.markers <- read.csv("TEPA_results/S03_DEA_clusterMarkers.csv")
 #### 1 - Select the gene set collections of interest #### 
 
 sets1 <- read.gmt("TEPA_data/mh.all.v2022.1.Mm.symbols.gmt") # Mouse hallmark
+sets2 <- read.gmt("TEPA_data/GOBP_CELL_MOTILITY.v2023.1.Mm.gmt")
+sets3 <- read.gmt("TEPA_data/REACTOME_NEUTROPHIL_DEGRANULATION.v2022.1.Mm.gmt") # The only Reactome pathway we're interested in
 #sets2 <- read.gmt("TEPA_data/m2.cp.v2022.1.Mm.symbols.gmt") # Mouse curated canonical pathways M2-CP: BioCarrta, Reactome, WikiPathways
 #sets3 <- read.gmt("TEPA_data/m5.all.v2022.1.Mm.symbols.gmt") # Mouse ontology gene sets M5: GO and tumor phenotype oncology
 #sets4 <- read.gmt("TEPA_data/m2.cp.reactome.v2022.1.Mm.symbols.gmt") # Mouse Reactome subset of Canonical pathways
 #sets5 <- msigdbr(species = "Mus musculus", category = "C7")
-sets5 <- read.gmt("TEPA_data/REACTOME_NEUTROPHIL_DEGRANULATION.v2022.1.Mm.gmt") # The only Reactome pathway we're interested in
 
 sets1$term <- as.character(sets1$term)
-#sets4$term <- as.character(sets4$term)
-sets5$term <- as.character(sets5$term)
+sets2$term <- as.character(sets2$term)
+sets3$term <- as.character(sets3$term)
 
 sets1 <- sets1 %>% split(x = .$gene, f = .$term)
-sets5 <- sets5 %>% split(x = .$gene, f = .$term)
-#sets5 <- sets5 %>% split(x = .$gene_symbol, f = .$gs_name)
+sets2 <- sets2 %>% split(x = .$gene, f = .$term)
+sets3 <- sets3 %>% split(x = .$gene, f = .$term)
+#sets3 <- sets3 %>% split(x = .$gene_symbol, f = .$gs_name)
 
-fgsea_sets <- append(sets1, sets5)
-#fgsea_sets <- append(fgsea_sets, sets5)
+fgsea_sets <- append(sets1, sets2)
+fgsea_sets <- append(fgsea_sets, sets3)
 
 #### 2 - Add custom gene set signatures ####
 # Search all isoforms of gene of interest
@@ -84,13 +86,14 @@ M2 <- c("Il10", "Ccl22", "Il4ra", "Il13ra1", "Chil3", "Cd163", "Tgfb1",
 # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3448669/
 
 seuset_immune@assays$RNA@scale.data <- scale(seuset_immune@assays$RNA@data, scale = TRUE)
+
 png("TEPA_plots/S04_neutrophilsPolarHeatmap.png", h = 4000, w = 6000, res = 300)
 neutroCells = subset(seuset_immune, scType == "Neutrophils")
-neutroCellsT = subset(seuset_immune, condition == "Treatment")
-DoHeatmap(object = subset(neutroCellsT, downsample = 1000), size = 6, 
-          assay = "RNA", features = c(N1,N2), group.bar = F) +
+#neutroCellsT = subset(seuset_immune, condition == "Treatment")
+DoHeatmap(object = subset(neutroCells, downsample = 1000), size = 6,
+          assay = "RNA", features = c(N1,N2), group.bar = T) +
   scale_fill_gradientn(colors = c("blue", "black", "red")) + 
-  theme(axis.text = element_text(size=15)) + NoLegend() +
+  theme(axis.text = element_text(size=15)) + 
   theme(plot.margin = margin(2,2,1.5,1.2, "cm"))
 dev.off()
 
@@ -128,27 +131,27 @@ ggsave(cnet, file = file, width = 50, height = 40, units = "cm")
 
 #### 5 - Clustered diverging bar plot all cell types
 
-save = "S04_immuneJointBarplot"
+save = "S04_immuneJointBarplot2"
 gseaByType(clusters, save = save)
 
 fgseaResByType = read.csv(paste0("TEPA_results/", save, "SHORT.csv"), sep = ";")
 b <- barPlotGSEA(fgseaResByType, byType = TRUE)
-ggsave(b, file=paste0("TEPA_plots/S04_barplotCellTypesEnrichedSHORT.png"),
+ggsave(b, file=paste0("TEPA_plots/S04_barplotCellTypesEnriched2.png"),
        width = 40, height = 20, units = "cm", limitsize = F, dpi = 500)
 
 ### Only custom ###
 
 # gsea
 save = "S04_immuneEnrichmentCustom_"
-gseaRES(clusters, fgsea_sets = custom, save = save, minSize = 7)
+gseaRES(clusters, fgsea_sets = custom, save = save, minSize = 5)
 
 # barplot
 save = "S04_immuneJointBarplotCustom"
-gseaByType(clusters, save = save)
+gseaByType(clusters, save = save, custom_sign = T)
 
 fgseaResByType = read.csv(paste0("TEPA_results/", save, ".csv"), sep = ",")
 b <- barPlotGSEA(fgseaResByType, byType = TRUE)
-ggsave(b, file=paste0("TEPA_plots/", save, ".png"),
+ggsave(b, file=paste0("TEPA_plots/S04_barplotCellTypesEnrichedCustom.png"),
        width = 30, height = 10, 
        units = "cm", limitsize = F, dpi = 500)
 
@@ -156,5 +159,5 @@ ggsave(b, file=paste0("TEPA_plots/", save, ".png"),
 save = "S04_immuneEnrichmentBulkCustom_"
 gseaRES("", fgsea_sets = custom, save = save, minSize = 7) # make it better
 
-
+SaveH5Seurat(seuset_immune, filename = "TEPA_results/S04_immuneDiff.h5Seurat", overwrite = TRUE)
 
