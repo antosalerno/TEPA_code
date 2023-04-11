@@ -18,6 +18,7 @@ library("tibble")
 library("Seurat")
 library("SeuratDisk")
 library("fgsea")
+library("stringr")
 
 ### 1 - Load data ####
 setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
@@ -131,19 +132,60 @@ data <- passedQC
 
 target_data <- aggregateCounts(passedQC)
 
-### 3.6 - Normalisation via 3rd quantile ###
+# ### 3.6 - Limit of Quantification (Detection Rates) ###
+# 
+# # Define LOQ SD threshold and minimum value
+# cutoff <- 2
+# minLOQ <- 2
+# 
+# # Calculate LOQ per module tested 
+# LOQ <- data.frame(row.names = colnames(target_data))
+# LOQ <- pmax(minLOQ, pData(target_data)[, "NegGeoMean_Mm_R_NGS_WTA_v1.0"]
+#             * pData(target_data)[, "NegGeoSD_Mm_R_NGS_WTA_v1.0"] ^ cutoff)
+# 
+# pData(target_data)$LOQ <- LOQ
+# 
+# ### - Filtering out either segments and/or genes with abnormally low signal ###
+# LOQ_Mat <- c()
+# ind <- fData(target_data)$Module == "Mm_R_NGS_WTA_v1.0"
+# Mat_i <- t(esApply(target_data[ind, ], MARGIN = 1,
+#                      FUN = function(x) {
+#                        x > LOQ
+#                      }))
+# LOQ_Mat <- rbind(LOQ_Mat, Mat_i)
+# 
+# # ensure ordering since this is stored outside of the geomxSet
+# LOQ_Mat <- LOQ_Mat[fData(target_data)$TargetName, ]
+# 
+# ### By segment gene detection rates ###
+# 
+# # Save detection rate information to pheno data
+# pData(target_data)$GenesDetected <- 
+#   colSums(LOQ_Mat, na.rm = TRUE)
+# pData(target_data)$GeneDetectionRate <-
+#   pData(target_data)$GenesDetected / nrow(target_data)
+# 
+# target_data <-
+#   target_data[, pData(target_data)$GeneDetectionRate >= .1]
+# 
+# dim(target_data)
+
+### 3.6 - Normalisation 
+### 3.6.1.  3rd quantile ###
 norm_target_data <- normalize(target_data, norm_method="quant",
                                   desiredQuantile = .75, toElt = "q_norm")
 
-#assayDataElementNames(norm_target_data)
-
-# skipping removal of genes with low detection rates here
+# Try other normalisation methods: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9800292/
 
 #### 4 - Coercion to Seurat object ####
 seuset_nano <- as.Seurat(norm_target_data, normData = "q_norm", ident = "Group", 
                          coordinates = c("ROICoordinateX", "ROICoordinateY"))
 Idents(seuset_nano) <- factor(x = Idents(seuset_nano), levels = c("C", "T3", "T7"))
 
+# Remove T3 samples
+seuset_nano <- subset(seuset_nano, Group != "T3")
+
+seuset_nano@misc <- list()
 SaveH5Seurat(seuset_nano, filename = "TEPA_results/N00_seusetNano.h5Seurat", overwrite = TRUE)
 
 #head(seuset_nano@misc$QCMetrics$QCFlags) 
@@ -238,14 +280,15 @@ DoHeatmap(object = subset(seuset_nano, downsample = 500), size = 6,
   theme(plot.margin = margin(2,2,1.5,1.2, "cm"))
 dev.off()
 
-#### Differential expression analysis ####
+#### 6 - Differential expression analysis ####
 # Check in parallel expression of DEA genes in the different cell types
-seuset_immune <- LoadH5Seurat("TEPA_results/02_immuneAnn.h5Seurat")
+seuset_immune <- LoadH5Seurat("TEPA_results/S04_immuneDiff.h5Seurat")
 
 # 5.2 Infiltration vs Non-Infiltration given Treatment
 
 Idents(seuset_nano) <- "Infiltration"
 seuset_nanoTEPA <- subset(seuset_nano, Condition == "Treatment")
+
 res <- FindMarkers(seuset_nanoTEPA, ident.1 = "T", ident.2 = "F",
                    only.pos = FALSE, verbose = FALSE,
                    latent.vars="Core",
@@ -310,7 +353,7 @@ res$p_val_adj = p.adjust(res$p_val, method='BH')
 write.csv(res, file=paste0("TEPA_results/N00_nanoCond_gInf_DEA.csv"))
 
 log2FC = 0.3
-save = "N00_nanoCond_gInf_"
+save = "N00_nanoCond_gInf2_"
 
 p <- EnhancedVolcano(res, subtitle = "",
                      #selectLab = markers,
@@ -319,7 +362,7 @@ p <- EnhancedVolcano(res, subtitle = "",
                      y = 'p_val_adj',
                      xlim = c(-2.5, 2.5),
                      title = "DEA Treatment vs Control given Infiltration",
-                     pCutoff = 0.05, 
+                     pCutoff = 0.1, 
                      FCcutoff = log2FC,
                      labFace = "bold",
                      labSize = 3,
@@ -334,12 +377,12 @@ p <- EnhancedVolcano(res, subtitle = "",
 ggsave(p, file=paste0("TEPA_plots/", save, "DEA.png"), width = 30, height = 25, units = "cm")
 
 ranked.genes<- res %>%
-  filter(p_val_adj < 0.05) %>%
+  filter(p_val_adj < 0.1) %>%
   arrange(desc(avg_log2FC))
 ranked.genes <- rownames(ranked.genes)[!is.na(rownames(ranked.genes))]
 
 png(paste0("TEPA_plots/",save,"DotPlot.png"), h = 2000, w = 2500, res = 300)
-DotPlot(object = seuset_immune, features = ranked.genes,  split.by = "condition",
+DotPlot(object = seuset_immune, features = ranked.genes, 
         scale=TRUE, dot.scale = 5,
         assay = "RNA", cols = c("blue","red")) + RotatedAxis() + coord_flip() +
   theme(axis.text.x = element_text(size=7), axis.text.y = element_text(size=7))
@@ -365,7 +408,7 @@ res$p_val_adj = p.adjust(res$p_val, method='BH')
 write.csv(res, file=paste0("TEPA_results/N00_nanoCond_DEA.csv"))
 
 log2FC = 0.3
-save = "N00_nanoCond_"
+save = "N00_nanoCond_noT3_"
 
 p <- EnhancedVolcano(res, subtitle = "",
                      #selectLab = markers,
@@ -395,7 +438,8 @@ ranked.genes<- res %>%
 ranked.genes <- rownames(ranked.genes)[!is.na(rownames(ranked.genes))]
 
 png(paste0("TEPA_plots/",save,"DotPlot.png"), h = 2000, w = 2500, res = 300)
-DotPlot(object = seuset_immune, features = ranked.genes,  split.by = "condition",
+Idents(seuset_immune) <- "scType"
+DotPlot(object = seuset_immune, features = ranked.genes,  
         scale=TRUE, dot.scale = 5,
         assay = "RNA", cols = c("blue","red")) + RotatedAxis() + coord_flip() +
   theme(axis.text.x = element_text(size=7), axis.text.y = element_text(size=7))
@@ -409,93 +453,86 @@ DoHeatmap(object = subset(seuset_nano, downsample = 500), size = 6,
   theme(plot.margin = margin(2,2,1.5,1.2, "cm"))
 dev.off()
 
-
 SaveH5Seurat(seuset_nano, filename = "TEPA_results/N00_seusetNanoRed.h5Seurat", overwrite = TRUE)
 
-#### 6 - Pathway enrichment Analysis ####
+#### 7 - Pathway enrichment Analysis ####
 seuset_nano <- LoadH5Seurat("TEPA_results/N00_seusetNanoRed.h5Seurat")
 
-### 6.1 - Cluster markers
-### 6.2 - Infiltration vs Non-Infiltration given Treatment
+### 7.1 - Cluster markers
+### 7.2 - Infiltration vs Non-Infiltration given Treatment
 
 sets1 <- read.gmt("TEPA_data/mh.all.v2022.1.Mm.symbols.gmt") # Mouse hallmark
+sets2 <- read.gmt("TEPA_data/GOBP_CELL_MOTILITY.v2023.1.Mm.gmt")
 #sets2 <- read.gmt("TEPA_data/m2.cp.reactome.v2022.1.Mm.symbols.gmt") # Reactome
 #sets3 <- read.gmt("TEPA_data/m8.all.v2023.1.Mm.symbols.gmt") # Cell types
 
 sets1$term <- as.character(sets1$term)
-#sets2$term <- as.character(sets2$term)
+sets2$term <- as.character(sets2$term)
 #sets3$term <- as.character(sets3$term)
 
 sets1 <- sets1 %>% split(x = .$gene, f = .$term)
-#sets2 <- sets2 %>% split(x = .$gene, f = .$term)
+sets2 <- sets2 %>% split(x = .$gene, f = .$term)
 #sets3 <- sets3 %>% split(x = .$gene, f = .$term)
 
-#fgsea_sets <- append(sets1, sets2)
+fgsea_sets <- append(sets1, sets2)
 #fgsea_sets <- append(fgsea_sets, sets3)
-fgsea_sets <- append(sets1, custom)
+fgsea_sets <- append(fgsea_sets, custom)
 
-save = "N00_infTEPA_Enrichment_"
+save = "N00_infTEPA_Enrichment2_"
 Idents(seuset_nano) <- "Infiltration"
 seuset_nanoINF <- subset(seuset_nano, Infiltration == "T")
 clusters = levels(Idents(seuset_nanoINF))
 gseaRES(clusters, fgsea_sets = fgsea_sets, save = save, input = "nanoInf_gCond")
 
-### 6.3 - Treatment vs Control given Infiltration
+### 7.3 - Treatment vs Control given Infiltration
 save = "N00_TEPAInf_Enrichment_"
 Idents(seuset_nano) <- "Condition"
 seuset_nanoTEPA <- subset(seuset_nano, Condition == "Treatment")
 clusters = levels(Idents(seuset_nanoTEPA))
 gseaRES(clusters, fgsea_sets = fgsea_sets, save = save, input = "nanoCond_gInf")
 
-### 6.4 - Treatment vs Control given Infiltration
-save = "N00_TEPA_Enrichment_"
+### 7.4 - Treatment vs Control 
+save = "N00_TEPA_Enrichment2_"
 Idents(seuset_nano) <- "Condition"
 clusters = levels(Idents(seuset_nano))
 gseaRES(clusters, fgsea_sets = fgsea_sets, save = save, input = "nanoCond")
 
-#### 7 - Spatial graphing ####
+#### 8 - Deconvolution analysis using SingleR ####
 
-id <- "Core"
-Idents(seuset_nano) <- id
-plots <- list()
-for(i in levels(Idents(seuset_nano))){
-  p <- suppressMessages(SpatialFeaturePlot(seuset_nano[,seuset_nano[[id]] == i], 
-                                      features = "nCount_GeoMx", pt.size.factor = 12) + 
-                     labs(title = i) + 
-                     theme(legend.position = "none") + 
-                     scale_fill_continuous(type = "viridis",
-                                           limits = c(min(seuset_nano$nCount_GeoMx), 
-                                                      max(seuset_nano$nCount_GeoMx))))
-  plots <- c(plots, list(p))
-}
-png("TEPA_plots/N00_spatialCore.png", h = 4000, w = 6000, res = 300)
-wrap_plots(plots)
+#source("TEPA_code/DWLS-master/Deconvolution_functions.R")
+
+# library(usethis) 
+# usethis::edit_r_environ()
+
+dataSC <- LoadH5Seurat("TEPA_results/S04_immuneDiff.h5Seurat")
+Idents(dataSC) <- "scType"
+# merge with tumor
+dataBulk <- LoadH5Seurat("TEPA_results/N00_seusetNanoRed.h5Seurat", assay = "GeoMx")
+labels = unique(Idents(dataSC))
+scdata <- GetAssayData(dataSC[["integrated"]], slot = "scale.data")
+spdata <- GetAssayData(seuset_nano, slot = "scale.data")
+
+
+library(devtools)
+library("SingleR")
+
+pred <- SingleR(test=dataSC, ref=dataBulk, labels=labels, de.method="wilcox")
+table(pred$labels)
+
+### 9 - Expression of single genes ####
+# Search all isoforms of gene of interest
+grep(pattern = "Cd8", 
+     x = rownames(x = seuset_nano@assays$GeoMx@data), 
+     value = TRUE, ignore.case = TRUE)
+
+png("TEPA_plots/N00_Cd34_CompareCond.png", h = 2000, w = 3500, res = 200)
+Idents(seuset_nano) <- "Condition"
+DoHeatmap(object = subset(seuset_nano, downsample = 500), size = 6,
+          features = c("Cd34", "Itgam", "Ptprc")) +
+  scale_fill_gradientn(colors = c("blue", "black", "red")) + 
+  theme(axis.text = element_text(size=15)) + 
+  theme(plot.margin = margin(2,2,1.5,1.2, "cm")) 
 dev.off()
-
-# Plot a specific feature
-plots <- list()
-gene = "Itgb7"
-for(i in levels(Idents(seuset_nano))){
-  p <- suppressMessages(SpatialFeaturePlot(seuset_nano[,seuset_nano[[id]] == i], 
-                                           features = gene, pt.size.factor = 12) + 
-                          labs(title = i) + 
-                          theme(legend.position = "none") + 
-                          scale_fill_continuous(type = "viridis",
-                                                limits = c(min(seuset_nano@assays$GeoMx@counts[gene,]), 
-                                                           max(seuset_nano@assays$GeoMx@counts[gene,]))))
-  plots <- c(plots, list(p))
-}
-png("TEPA_plots/N00_spatialCore_Itgb7.png", h = 4000, w = 6000, res = 300)
-wrap_plots(plots)
-dev.off()
-
-# no spatial meaningggg
-
-
-
-
-
-
 
 
 
