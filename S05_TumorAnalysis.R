@@ -26,6 +26,15 @@ tumor <- LoadH5Seurat("TEPA_results/S00_tumor.h5Seurat") #13560 cells and 21388 
 
 #### 1 - QC and filtering of tumor cells ####
 
+#png("TEPA_plots/S05_umapTumorNotInt.png", w = 2000, h = 2000, res = 300)
+pdf(qq("TEPA_final_figures/S05_umapTumorNotInt.pdf"), w = 6, h = 5)
+DimPlot(object = tumor, pt.size = 0.000000005, group.by = "condition",
+        reduction = 'umap', ncol = 1,
+        label = FALSE, cols = cond_col) +
+  ggtitle("Tumor cells in TEPA vs Control") +
+  theme(plot.title = element_text(hjust = 0.5))
+dev.off()
+
 tumor <- NormalizeData(tumor) 
 # Add percent mito data in seurat seuset_tumorect
 tumor[["percent.mt"]] <- PercentageFeatureSet(tumor, pattern = "^mt.")
@@ -65,7 +74,6 @@ plot2 <- FeatureScatter(tumor, feature1 = "nCount_RNA", feature2 = "nFeature_RNA
 plot1 + plot2 # We can spot two separate data clouds because of the bimodal distribution of the data: control vs treated cells
 dev.off()
 
-
 ### Batch effect correction ###
 
 samples.list <- Splitseuset_tumorect(tumor, split.by = "condition")
@@ -97,9 +105,23 @@ seuset_tumor <- FindClusters(seuset_tumorect = seuset_tumor, graph.name = "clust
 seuset_tumor <- RunUMAP(seuset_tumor, dims = 1:80, reduction = "pca", verbose = FALSE)
 
 png("TEPA_plots/S05_tumorUmapClust.png", w = 4000, h = 4000, res = 350)
-DimPlot(seuset_tumorect = seuset_tumor, pt.size = 0.5, reduction = 'umap', ncol = 1,
-             group.by = c("seurat_clusters", "condition"), label = TRUE) +
+DimPlot(seuset_tumor, pt.size = 0.5, reduction = 'umap', ncol = 1, 
+             group.by = c("seurat_clusters", "condition"), label = FALSE) +
   ggtitle(paste(as.character(nrow(seuset_tumor@meta.data)), " cells")) +
+  theme(plot.title = element_text(hjust = 0.5)) 
+dev.off()
+
+#png("TEPA_plots/S05_tumorUmapClusters.png", w = 2000, h = 2000, res = 200)
+pdf(qq("TEPA_final_figures/S05_tumorUmapClusters.pdf"), w = 9, h = 7)
+DimPlot(seuset_tumor, pt.size = 0.5, reduction = 'umap', ncol = 1, cols = tum_col,
+        group.by = c("seurat_clusters"), label = TRUE) +
+  theme(plot.title = element_text(hjust = 0.5)) 
+dev.off()
+
+png("TEPA_plots/S05_tumorUmapClusters.png", w = 2000, h = 2000, res = 200)
+#pdf(qq("TEPA_final_figures/S05_tumorUmapCond.pdf"), w = 10, h = 7)
+DimPlot(seuset_tumor, pt.size = 0.5, reduction = 'umap', ncol = 1, cols = cond_col,
+        group.by = c("condition"), label = FALSE) +
   theme(plot.title = element_text(hjust = 0.5)) 
 dev.off()
 
@@ -137,12 +159,15 @@ for(c in 1:length(clusters)){
 saveWorkbook(wb, file=paste0("TEPA_results/",save,".xlsx"), overwrite = TRUE)
 
 # B - Add module score to the Seurat seuset_tumorect for each cluster ###
-seuset_tumor <- createSets(markers = tumor.markers, 
-                           seuset_tumor=seuset_tumor, id = "seurat_clusters")
+tumor.markers <- read.csv("TEPA_results/S05_tumorMarkers.csv")
 
-png("TEPA_plots/S05_tumorClustersAnn.png", h = 3000, w = 4500, res = 300)
+seuset_tumor <- createSets(markers = tumor.markers, 
+                           obj = seuset_tumor, id = "seurat_clusters")
+
+#png("TEPA_plots/S05_tumorClustersAnn.png", h = 3000, w = 4500, res = 300)
+pdf(qq("TEPA_final_figures/S05_tumorClustersAnn.pdf"), h = 7, w = 9)
 clusters = unique(Idents(seuset_tumor))
-patchwork::wrap_plots(FeaturePlot(seuset_tumor, ncol = 2, combine = TRUE, pt.size = 2, 
+patchwork::wrap_plots(FeaturePlot(seuset_tumor, ncol = 2, combine = TRUE, pt.size = 1, 
                                   features = as.character(clusters), label = TRUE, repel = TRUE)) & theme_minimal() &
   scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
 dev.off() 
@@ -151,8 +176,9 @@ dev.off()
 
 markers <- getTopMarkers(tumor.markers, 5)
 
-png("TEPA_plots/S05_tumorDotPlot.png", h = 2000, w = 2500, res = 300)
-DotPlot(seuset_tumorect = seuset_tumor, features = unique(markers), # split.by = "condition",
+#png("TEPA_plots/S05_tumorDotPlot.png", h = 2000, w = 2500, res = 300)
+pdf(qq("TEPA_final_figures/S05_tumorDotPlot.pdf"), h = 5, w = 6)
+DotPlot(seuset_tumor, features = unique(markers), # split.by = "condition",
         scale=TRUE, col.min = -4, col.max = 4, 
         dot.min = 0, dot.scale = 5, cols = c("blue","red")) + RotatedAxis() + coord_flip() +
   theme(axis.text.x = element_text(size=7), axis.text.y = element_text(size=7))
@@ -210,61 +236,113 @@ res <- FindMarkers(seuset_tumor,
                                 ident.1 = "Treatment", ident.2 = "Control",
                                 only.pos = FALSE, verbose = FALSE,
                                 latent.vars="orig.ident",
-                                test.use="MAST")
-res$p_val_adj = p.adjust(res$p_val, method='BH')
-write.csv(res, file=paste0("TEPA_results/S05_tumorBulkDEA.csv"))
+                                test.use="DESeq2")
+#res$p_val_adj = p.adjust(res$p_val, method='BH')
+write.csv(res, file=paste0("TEPA_results/S05_tumorBulkDEA_DESeq2.csv"))
 
 log2FC = 0.5
 save = "S05_tumorBulk_"
+res <- res %>% 
+  filter(p_val_adj < 0.05);
+res[order(-res$avg_log2FC),]
 
-# volcano bulk doesn't work
+markers_DEA <- rownames(rbind(head(res,20), tail(res,20)))
+  
+#png("TEPA_plots/S05_tumorBulk_DEA_FeaturePlot.png", h = 2000, w = 2500, res = 300)
+pdf(qq("TEPA_final_figures/S05_tumorBulk_DEA_FeaturePlot.pdf"), h = 2, w = 10)
+DotPlot(seuset_tumor, features = unique(markers_DEA), # split.by = "condition",
+        scale=TRUE, col.min = -4, col.max = 4, 
+        dot.min = 0, dot.scale = 5, cols = c("blue","red")) + RotatedAxis() +
+  theme(axis.text.x = element_text(size=7), axis.text.y = element_text(size=7))
+dev.off()
+# Stmn3 = Exhibits microtubule-destabilizing activity, which is antagonized by STAT3
+# Zfp580 = cellular response to hydrogen peroxide; positive regulation of cell migration
 
 p <- EnhancedVolcano(res, subtitle = "",
-                     #selectLab = markers,
                      lab = rownames(res),
                      x = 'avg_log2FC',
                      y = 'p_val_adj',
-                     xlim = c(-2.5, 2.5),
-                     title = "DEA bulk TEPA vs Control",
+                     xlim = c(-3.5, 2),
+                     title = "DEA Tumor TEPA vs Control",
                      pCutoff = 0.05, 
                      FCcutoff = log2FC,
                      labFace = "bold",
                      labSize = 3,
-                     col = c('lightgrey', 'pink', 'lightblue', 'salmon'),
+                     col = c('lightgrey', 'pink', "#ADD8E6", 'salmon'),
                      colAlpha = 4/5,
                      legendLabSize = 14,
                      legendIconSize = 4.0,
                      drawConnectors = TRUE,
-                     widthConnectors = 0.3,colConnectors = 'gray51', maxoverlapsConnectors = 80,
+                     cutoffLineType = 'blank',
+                     cutoffLineCol = 'black',
+                     cutoffLineWidth = 0.8,
+                     hline = c(10e-10, 10e-50, 10e-100, 10e-300),
+                     hlineCol = c('grey0', 'grey25','grey50','grey75'),
+                     hlineType = 'longdash',
+                     hlineWidth = 0.8,
+                     gridlines.major = FALSE,
+                     gridlines.minor = FALSE,
+                     widthConnectors = 0.3,
+                     colConnectors = 'gray51', 
+                     maxoverlapsConnectors = 170,
                      caption = paste0('Upregulated = ', nrow(res[res$avg_log2FC>log2FC&res$p_val_adj<=0.05,]), ' genes',
-                                      "\n",'Downregulated = ', nrow(res[res$avg_log2FC< -log2FC&res$p_val_adj<=0.05,]), ' genes'))+
-  theme(plot.title = element_text(hjust = 0.5)) + coord_flip()
-ggsave(p, file=paste0("TEPA_plots/", save, "DEA.png"), width = 30, height = 25, units = "cm")
-
-bulkDEAgenes <- head(rownames(res %>% arrange(avg_log2FC)), 30)
-png(paste0("TEPA_plots/", save, "Heatmap.png"), h = 3000, w = 4500, res = 200)
-DoHeatmap(seuset_tumorect = seuset_tumor, 
-          features = bulkDEAgenes, label = TRUE)
-dev.off()
-
+                                      "\n",'Downregulated = ', nrow(res[res$avg_log2FC< -log2FC&res$p_val_adj<=0.05,]), ' genes')) + 
+  coord_flip(expand = TRUE, clip = "on") +
+  theme(plot.title = element_text(hjust = 0.5)) + coord_cartesian(ylim=c(0,400))
+ggsave(p, file=paste0("TEPA_final_figures/", save, "DEA.pdf"), width = 28, height = 17, units = "cm")
 
 #### 4 - Gene Set Enrichment Analysis ####
 
 sets1 <- read.gmt("TEPA_data/mh.all.v2022.1.Mm.symbols.gmt") # Mouse hallmark
-sets2 <- read.gmt("TEPA_data/REACTOME_NEUTROPHIL_DEGRANULATION.v2022.1.Mm.gmt") # The only Reactome pathway we're interested in
+sets2 <- read.gmt("TEPA_data/GOBP_CELL_MOTILITY.v2023.1.Mm.gmt")
+sets3 <- read.gmt("TEPA_data/REACTOME_NEUTROPHIL_DEGRANULATION.v2022.1.Mm.gmt") # The only Reactome pathway we're interested in
+sets4 <- read.gmt("TEPA_data/REACTOME_ENOS_ACTIVATION.v2023.1.Mm.gmt") # REACTOME_ENOS_ACTIVATION
+sets5 <- read.gmt("TEPA_data/REACTOME_PENTOSE_PHOSPHATE_PATHWAY.v2023.1.Mm.gmt")
+sets6 <- read.gmt("TEPA_data/WP_OXIDATIVE_STRESS_AND_REDOX_PATHWAY.v2023.1.Mm.gmt")
+sets7 <- read.gmt("TEPA_data/WP_OXIDATIVE_STRESS_RESPONSE.v2023.1.Mm.gmt")
+sets8 <- read.gmt("TEPA_data/WP_OXIDATIVE_DAMAGE_RESPONSE.v2023.1.Mm.gmt")
+sets9 <- read.gmt("TEPA_data/REACTOME_CITRIC_ACID_CYCLE_TCA_CYCLE.v2023.1.Mm.gmt")
+sets10 <- read.gmt("TEPA_data/REACTOME_DNA_DOUBLE_STRAND_BREAK_RESPONSE.v2023.1.Mm.gmt")
 
 sets1$term <- as.character(sets1$term)
 sets2$term <- as.character(sets2$term)
+sets3$term <- as.character(sets3$term)
+sets4$term <- as.character(sets4$term)
+sets5$term <- as.character(sets5$term)
+sets6$term <- as.character(sets6$term)
+sets7$term <- as.character(sets7$term)
+sets8$term <- as.character(sets8$term)
+sets9$term <- as.character(sets9$term)
+sets10$term <- as.character(sets10$term)
 
 sets1 <- sets1 %>% split(x = .$gene, f = .$term)
 sets2 <- sets2 %>% split(x = .$gene, f = .$term)
+sets3 <- sets3 %>% split(x = .$gene, f = .$term)
+sets4 <- sets4 %>% split(x = .$gene, f = .$term)
+sets5 <- sets5 %>% split(x = .$gene, f = .$term)
+sets6 <- sets6 %>% split(x = .$gene, f = .$term)
+sets7 <- sets7 %>% split(x = .$gene, f = .$term)
+sets8 <- sets8 %>% split(x = .$gene, f = .$term)
+sets9 <- sets9 %>% split(x = .$gene, f = .$term)
+sets10 <- sets10 %>% split(x = .$gene, f = .$term)
+#sets3 <- sets3 %>% split(x = .$gene_symbol, f = .$gs_name)
 
+fgsea_sets <- list()
 fgsea_sets <- append(sets1, sets2)
+fgsea_sets <- append(fgsea_sets, sets3)
+fgsea_sets <- append(fgsea_sets, sets4)
+fgsea_sets <- append(fgsea_sets, sets5)
+fgsea_sets <- append(fgsea_sets, sets6)
+fgsea_sets <- append(fgsea_sets, sets7)
+fgsea_sets <- append(fgsea_sets, sets8)
+fgsea_sets <- append(fgsea_sets, sets9)
+fgsea_sets <- append(fgsea_sets, sets10)
 fgsea_sets <- append(fgsea_sets, custom)
+fgsea_sets <- append(fgsea_sets, copper_sign)
 
-Idents(seuset_tumor) <- "seurat_clusters"
+Idents(seuset_tumor) <- "condition"
 clusters = unique(Idents(seuset_tumor))
-save = "S05_tumorEnrichment_"
+save = "S05_tumorEnrichment_Cond"
 gseaRES(clusters, fgsea_sets = fgsea_sets, save = save, input = "tumor")
 
 #### 5 - Look at expression of specific genes ####
@@ -274,33 +352,44 @@ grep(pattern = "Ifi2",
      x = rownames(x = seuset_tumor@assays$RNA@data), 
      value = TRUE, ignore.case = TRUE)
 
-png("TEPA_plots/S05_tumorMt1.png", h = 2000, w = 2000, res = 200)
+#png("TEPA_plots/S05_tumorMt1.png", h = 2000, w = 2000, res = 200)
+pdf("TEPA_final_figures/S05_tumorMt1.pdf", h = 4, w = 4)
 Idents(seuset_tumor) <- "condition"
-VlnPlot(seuset_tumor, features =  "Mt1", ncol = 1, pt.size = 0.000005) + 
+VlnPlot(seuset_tumor, features =  c("Mt1"),
+        cols = cond_col, ncol = 1, pt.size = 0) + 
   ylim(-1,5) +
-  geom_signif(xmin = 1, xmax = 2, y_position = 4, annotations="***")
+  geom_signif(xmin = 1, xmax = 2, y_position = 4, annotations="***")+
+  geom_boxplot(width=.1, outlier.size = 0.5)
 dev.off()
 
-png("TEPA_plots/S05_tumorMycn.png", h = 2000, w = 2000, res = 200)
+#png("TEPA_plots/S05_tumorMt2.png", h = 2000, w = 2000, res = 200)
+pdf("TEPA_final_figures/S05_tumorMt2.pdf", h = 4, w = 4)
 Idents(seuset_tumor) <- "condition"
-VlnPlot(seuset_tumor, features =  "Mycn", ncol = 1, pt.size = 0.000005) + 
+VlnPlot(seuset_tumor, features =  c("Mt2"),
+        cols = cond_col, ncol = 1, pt.size = 0) + 
+  ylim(-1,5) +
+  geom_signif(xmin = 1, xmax = 2, y_position = 4, annotations="***")+
+  geom_boxplot(width=.1, outlier.size = 0.5)
+dev.off()
+
+#png("TEPA_plots/S05_tumorMycn.png", h = 2000, w = 2000, res = 200)
+pdf(qq("TEPA_final_figures/S05_tumorMycn.pdf"), h = 4, w = 4)
+Idents(seuset_tumor) <- "condition"
+VlnPlot(seuset_tumor, features =  "Mycn", cols = cond_col,
+        ncol = 1, pt.size = 0) + 
+  ylim(0,6) +
+  geom_signif(xmin = 1, xmax = 2, y_position = 5.25, annotations="***") +
+  geom_boxplot(width=.1, outlier.size = 0.5)
+dev.off()
+
+png("TEPA_plots/S05_tumorH1fx.png", h = 2000, w = 2000, res = 200)
+Idents(seuset_tumor) <- "condition"
+VlnPlot(seuset_tumor, features =  "H1fx", cols = cond_col,
+        ncol = 1, pt.size = 0.000005) + 
   ylim(0,6) +
   geom_signif(xmin = 1, xmax = 2, y_position = 5.25, annotations="***")
 dev.off()
 
-png("TEPA_plots/S05_tumorMycn.png", h = 2000, w = 2000, res = 200)
-Idents(seuset_tumor) <- "condition"
-VlnPlot(seuset_tumor, features =  "Mycn", ncol = 1, pt.size = 0.000005) + 
-  ylim(0,6) +
-  geom_signif(xmin = 1, xmax = 2, y_position = 5.25, annotations="***")
-dev.off()
-
-png("TEPA_plots/S05_tumorPdl1.png", h = 2000, w = 2000, res = 200)
-Idents(seuset_tumor) <- "condition"
-VlnPlot(seuset_tumor, features =  "Cd274", ncol = 1, pt.size = 0.000005) + 
-  ylim(0,6) +
-  geom_signif(xmin = 1, xmax = 2, y_position = 5.25, annotations="***")
-dev.off()
 
 #### 6 - Investigate whether the tumor is adrenergic or mesenchymal ####
 seuset_tumor <- LoadH5Seurat("TEPA_results/S05_seusetTumorClu.h5Seurat")

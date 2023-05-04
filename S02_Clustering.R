@@ -3,13 +3,17 @@
 ## date: 13/01/2022
 
 library("Seurat")
+library("SeuratDisk")
 library("ggplot2")
 library("writexl")
 library(openxlsx)
 library(HGNChelper)
 library(dplyr)
+library(RColorBrewer)
+library(patchwork)
 
 setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
+source("TEPA_code/supportFunctions.R")
 
 #### 1 - Dimensionality reduction ####
 
@@ -33,8 +37,9 @@ seuset_immune <- FindClusters(object = seuset_immune, graph.name = "clust", reso
 seuset_immune <- RunUMAP(seuset_immune, dims = 1:60, reduction = "pca", verbose = FALSE)
 
 png("TEPA_plots/S02_umapExplore.png", w = 6000, h = 2000, res = 300)
+#pdf(qq("TEPA_final_figures/S02_umapExplore.pdf"), w = 15, h = 8)
 DimPlot(object = seuset_immune, pt.size = 0.0005, reduction = 'umap', ncol = 3,
-        group.by = c("orig.ident", "condition", "seurat_clusters"), label = TRUE) +
+        group.by = c("orig.ident", "condition", "seurat_clusters"), label = FALSE) +
   ggtitle(paste(as.character(nrow(seuset_immune@meta.data)), " cells")) +
   theme(plot.title = element_text(hjust = 0.5))
 dev.off()
@@ -89,69 +94,103 @@ cL_results = do.call("rbind",
                               es.max.cl = sort(rowSums(es.max[,rownames(seuset_immune@meta.data[seuset_immune@meta.data$seurat_clusters==cl, ])]),decreasing = !0)
                               head(data.frame(cluster = cl, type = names(es.max.cl), scores = es.max.cl, ncells = sum(seuset_immune@meta.data$seurat_clusters==cl)), 10)
                             }))
-sctype_scores = cL_results %>% group_by(cluster) %>% top_n(n = 1, wt = scores)
-sctype_scores = sctype_scores[order(sctype_scores$cluster),]
+celltypes_scores = cL_results %>% group_by(cluster) %>% top_n(n = 1, wt = scores)
+celltypes_scores = celltypes_scores[order(celltypes_scores$cluster),]
 
-# Manual curation of scType annotation
-sctype_scores[3, "type"] <- "Cd4+ Naive T cells"
-sctype_scores[4, "type"] <- "Cd4+ Memory T cells" #"Cd4+ Naive T cells"
-sctype_scores[5, "type"] <- "Cd8+ Naive T cells" #"Cd4+ Memory T cells"
-sctype_scores[6, "type"] <- "Cd8+ NkT-like cells"
-sctype_scores[7, "type"] <- "DN Regulatory T cells" #"Cd8+ Naive T cells"
-sctype_scores[8, "type"] <- "Cd4+ Naive T cells" #"Cd8+ NkT-like cells"
-sctype_scores[10, "type"] <- "Macrophages" # or macrophages
-sctype_scores[11, "type"] <- "Macrophages" # or macrophages
-sctype_scores[12, "type"] <- "HLA-expressing cells" #"Dendritic cells" # or DCs
-sctype_scores[13, "type"] <- "Dendritic cells" #"B cells"
-sctype_scores[15, "type"] <- "B cells"
+# Manual curation of celltypes annotation
+celltypes_scores[3, "type"] <- "Cd4+ Naive T cells"
+celltypes_scores[4, "type"] <- "Cd4+ Memory T cells" #"Cd4+ Naive T cells"
+celltypes_scores[5, "type"] <- "Cd8+ Naive-Memory T cells" #"Cd4+ Memory T cells"
+celltypes_scores[6, "type"] <- "Cd8+ NkT-like cells"
+celltypes_scores[7, "type"] <- "DN Regulatory T cells" #"Cd8+ Naive T cells"
+celltypes_scores[8, "type"] <- "Cd4+ Naive T cells" #"Cd8+ NkT-like cells"
+celltypes_scores[10, "type"] <- "Macrophages" # or macrophages
+celltypes_scores[11, "type"] <- "Macrophages" # or macrophages
+celltypes_scores[12, "type"] <- "HLA-expressing cells" #"Dendritic cells" # or DCs
+celltypes_scores[13, "type"] <- "Dendritic cells" #"B cells"
+celltypes_scores[14,"type"] <- "Natural killer cells"
+celltypes_scores[15, "type"] <- "B cells"
+celltypes_scores[17,"type"] <- "Gamma-delta T cells"
 
-seuset_immune@meta.data$scType = ""
-for(j in unique(sctype_scores$cluster)){
-  cl_type = sctype_scores[sctype_scores$cluster==j,]; 
-  seuset_immune@meta.data$scType[seuset_immune@meta.data$seurat_clusters == j] = as.character(cl_type$type[1])
+seuset_immune@meta.data$celltypes = ""
+for(j in unique(celltypes_scores$cluster)){
+  cl_type = celltypes_scores[celltypes_scores$cluster==j,]; 
+  seuset_immune@meta.data$celltypes[seuset_immune@meta.data$seurat_clusters == j] = as.character(cl_type$type[1])
 }
 
-Idents(seuset_immune) <- seuset_immune@meta.data$scType
+Idents(seuset_immune) <- seuset_immune@meta.data$celltypes
 
 # We decide to remove the cluster HLA-expressing cells since it is probably ambient RNA -> mixture of B cells and macrophage markers
-seuset_immune <- seuset_immune[,!seuset_immune$scType == "HLA-expressing cells"]
+seuset_immune <- seuset_immune[,!seuset_immune$celltypes == "HLA-expressing cells"]
+# We are not sure how to define these progenitors
+seuset_immune <- seuset_immune[,!seuset_immune$celltypes == "Progenitor cells"]
+
 levels(Idents(seuset_immune)) # now 14 clusters rather than 15
 
+seuset_immune@meta.data$celltypes <- factor(seuset_immune@meta.data$celltypes,
+                                  levels=c("Cd4+ Naive T cells","Cd4+ Memory T cells",  
+                                           "Cd8+ Naive-Memory T cells","Cd8+ NkT-like cells" , 
+                                           "Gamma-delta T cells","DN Regulatory T cells" , 
+                                           "Natural killer cells", 
+                                           "B cells" , "Dendritic cells", "Macrophages", 
+                                           "Basophils", "Eosinophils", "Neutrophils"  
+                                  ))
+Idents(seuset_immune) <- "celltypes"
 options(ggrepel.max.overlaps = Inf)
 png("TEPA_plots/S02_umapAnn.png", w = 3000, h = 3000, res = 300)
 p <- DimPlot(object = seuset_immune, pt.size = 0.5, reduction = 'umap', ncol = 1,
-             group.by = "scType", label = FALSE) +
+             group.by = "celltypes", label = FALSE,cols = cellt_col) +
   ggtitle("Cell types in NB Control and Treated samples") +
   theme(plot.title = element_text(hjust = 0.5)) 
-LabelClusters(p, id = "scType", size = 5, repel = T,  box.padding = 1)
+LabelClusters(p, id = "celltypes", size = 5, repel = T,  box.padding = 1)
 dev.off()
 
-png("TEPA_plots/S02_umapCondAnn.png", w = 4000, h = 2000, res = 300)
-p <- DimPlot(object = seuset_immune, pt.size = 0.05, reduction = 'umap', ncol = 2,
-        group.by = "scType", split.by= "condition", label = FALSE) +
-  ggtitle("Cell types in NB Control and Treated samples") +
-  theme(plot.title = element_text(hjust = 0.5))
-LabelClusters(p, id = "scType", size = 3, repel = T, box.padding = 1)
+#png("TEPA_plots/S02_umapCondAnn.png", w = 4000, h = 2000, res = 300)
+pdf(qq("TEPA_final_figures/S02_umapCondAnn.pdf"), w = 12, h = 6)
+pt1 <- DimPlot(object = seuset_immune, pt.size = 0.08, reduction = 'umap', ncol = 2,
+        group.by = "celltypes", split.by= "condition", label = FALSE, cols = cellt_col) +
+  ggtitle("") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+LabelClusters(pt1, id = "celltypes", size = 2.8, repel = T)
 dev.off()
 
 ### Bar Plot with proportions
 pt <- table(Idents(seuset_immune), seuset_immune$condition)
 pt <- as.data.frame(pt)
 pt$Var1 <- as.character(pt$Var1)
-#getPalette = colorRampPalette(brewer.pal(11, "PiYG"))
-#colorCount = length(unique(pt$Var1))
+
+pt$Var1 <- factor(pt$Var1,levels=levels(seuset_immune$celltypes)) # Look the difference in the factors order
 
 png(paste0("TEPA_plots/S02_condAnnClusterFreq.png"), w=2500,h=2500, res=300)
-ggplot(pt, aes(x = Var2, y = Freq, fill = Var1)) +
+#pdf(qq("TEPA_final_figures/S02_condAnnClusterFreq.pdf"), w = 6, h = 8)
+ggplot(pt, aes(x = Var2, y = Freq, fill = factor(Var1))) +
   theme_bw(base_size = 15) +
   geom_col(position = "fill", width = 0.5) +
   geom_bar(stat = "identity")+
   xlab("Condition") +
   ylab("Cell type") +
-  ggtitle("Cell types in TEPA vs Control") +
-  #scale_fill_manual(values = getPalette(colorCount)) +
-  theme(legend.title = element_blank())
+  #ggtitle("Cell types in TEPA vs Control") +
+  scale_fill_manual(values = cellt_col) +
+  theme(legend.title = element_blank()) & NoLegend()
 dev.off()
 
+###  Bar Plot with percentage
+pt <- table(Idents(seuset_immune), seuset_immune$condition)
+data_percentage<- apply(pt, 2, function(x){as.numeric(x)*100/sum(x,na.rm=T)})
+
+# Make a stacked barplot--> it will be in %!
+#png(paste0("TEPA_plots/S02_condAnnClusterPerc.png"), w=2500,h=2500, res=300)
+pdf(paste0("TEPA_final_figures/S02_condAnnClusterPerc.pdf"), w=2500,h=2500)
+par(mar = c(5.1, 5.1, 4.1, 12))
+barplot(data_percentage, col=cellt_col, border="white", 
+        ylab="Percentage of cells per cell type",
+        main = "Cell types in TEPA vs Control",
+        legend = rownames(pt),
+        args.legend = list(x = "topright",inset = c(-0.45, 0)))
+dev.off()
+
+
+
 SaveH5Seurat(seuset_immune, filename = "TEPA_results/S02_immuneAnn.h5Seurat", overwrite = TRUE)
+
 

@@ -2,6 +2,20 @@
 ## author: Antonietta Salerno
 ## date: 20/01/2023
 
+# Define color coding scheme
+cellt_col <- c("#CC4C02","#CE1256","#004529","#ABA9E8",
+                        "#5AAE61","#C979D7", "#6BAED6" , 
+                         "#FED976","#7A0177","#35978F","#67001F",
+                        "#045A8D", "#A6C950","#B30000")
+                        
+tum_col <- colorRampPalette(RColorBrewer::brewer.pal(10,"Paired"))(10)[3:6]
+cond_col <- c("#ADD8E6", "#A50F15")
+cond_col <- colorRampPalette(RColorBrewer::brewer.pal(4,"Paired"))(4)[1:2]
+names(cond_col) <- c("Control", "Treatment")
+
+inf_col <- colorRampPalette(RColorBrewer::brewer.pal(4,"Paired"))(4)[3:4]
+names(inf_col) <- c("T", "F")
+
 # S00 - Density histogram ####
 
 hist_dens <- function(x, breaks = "Scott", 
@@ -19,7 +33,7 @@ hist_dens <- function(x, breaks = "Scott",
 # Create signature of cell type with top markers
 createSets <- function(markers = immune.markers,
                        obj = seuset_immune,
-                       id = "scType"){
+                       id = "celltypes"){
   Idents(obj) <- id
   clusters = unique(Idents(obj))
   for(c in 1:length(clusters)){
@@ -57,9 +71,9 @@ plotVolcano <- function(clusters, res=NULL, type = "condition",
     try({
       if (type == "condition"){
         if(immune){
-          file=paste0("TEPA_results/S03_immuneCond_DEA_",sub(" ", "_", cluster),".csv")
+          file=paste0("TEPA_results/S03_immuneCond_DEA_",gsub(" |/", "_", cluster),".csv")
         } else {
-          file=paste0("TEPA_results/S05_tumorCond_DEA_",sub(" ", "_", cluster),".csv")
+          file=paste0("TEPA_results/S05_tumorCond_DEA_",gsub(" |/", "_", cluster),".csv")
         } 
         res <- read.csv(file, sep=",")
         rownames(res) <- res$X
@@ -93,15 +107,16 @@ plotVolcano <- function(clusters, res=NULL, type = "condition",
   }
 }
 
-# S05 - GSEA ####
+# S04 - GSEA ####
 
-N1 <- c("S100a8", "S100a9", "Icam1", "Fas", "Tnf", "Isg15", "Isg20", 
-        "Ccl3", "Ccl4",  "Cxcl2", "Cxcl3", "Cebpb", "Il1a" ,"Il1b", "Il1r2", "Il1rn", "Il6ra", "Il15",
-        "Stat3", "Hif1a", "Ifitm1","Ifitm2",  "Ifitm3", "Ifitm6",  
-        "Acod1", "Myd88", "Prkcd", "Mmp8", "Mmp9","Retnlg", "Arg2", "Sell")
+N1 <- c("Cebpb", "Il1b","Cxcl2","S100a8","S100a9","Ccl3", "Ccl4", "Ifitm1", "Ifitm2", "Ifitm3", "Ifitm6", 
+          "Acod1","Sell", "Prkcd","Il6ra","Retnlg","Il1r2","Mmp8", "Mmp9","Icam1","Hif1a",  
+         "Tnf", "Myd88", "Fas", "Cxcl3", "Isg15", "Isg20", "Arg2", "Stat3", 
+         "Il1a" , "Il15")
+
 N2 <- c("Tgfb1", "Tgfb1i1","Tgfb2", "Tgfb3", "Ccl2",  "Ccl17","Cxcl14", 
         "Cxcl15",  "Il1r1", "Il2", "Il17a", "Mpo", "Slc27a2", "Arg1", 
-        "Mrc1", "Chil3", "Elane", "Ctsg", "Retnla", "Cxcl3", "Singlecf")
+        "Mrc1", "Chil3", "Elane", "Ctsg", "Retnla", "Siglecf")
 
 # https://www.sciencedirect.com/science/article/pii/S1535610809002153?via%3Dihub
 # https://www.sciencedirect.com/science/article/pii/S1471490605002425
@@ -124,11 +139,13 @@ copper_genes <- c("Slc31a1", "Atp7a", "Atp7b", "Sco1", "Cox11", "Steap3", "Commd
                   "Sod2", "Steap4", "Atox1", "Ccs", "Mt1", "Mt2", "Mt3", "Fdx1", "Lias", "Lipt1", "Dld", "Dlat",
                   "Pdha1", "Pdhb",  "Gls", "Cdkn2a")
 
+copper_sign <- list(copper_genes)
+names(copper_sign) <- "COPPER METABOLISM"
 
 # @ version of clusterProfiler:: cnetplot
 networkPlotGSEA <- function(fgseaResPlot, ranked.genes, cluster, CNET_gene_cutoff = 6){
   out <- tryCatch({
-    cnet <- clusterProfiler::cnetplot(fgseaResPlot, showCategory = CNET_gene_cutoff, 
+    cnet <- clusterProfiler::cnetplot(fgseaResPlot, showCategory = CNET_gene_cutoff, colorEdge = TRUE, 
                                       categorySize="p.adjust", color.params = list(foldChange = ranked.genes)) + 
       labs(title = paste("Significant Pathways in ", cluster ,sep = ""),
            subtitle = "enriched by GSEA",
@@ -153,9 +170,10 @@ barPlotGSEA <- function(fgseaRes, cluster = NULL, name = "", byType = FALSE){
   # When you want to plot the enrichment of gene sets by cell type
   if (byType){
     
-    clusters_colors = hue_pal()(length(clusters))
-    order_cl <- sort(unlist(clusters))
-    c <- setNames(clusters_colors, order_cl)
+    #clusters_colors = hue_pal()(length(clusters))
+    #order_cl <- sort(unlist(clusters))
+    #c <- setNames(clusters_colors, order_cl)
+    c = cellt_col[1:13]
     
     fgseaRes %>% arrange(pathway, NES) %>%
       ggplot(aes(x = pathway, 
@@ -202,17 +220,16 @@ barPlotGSEA <- function(fgseaRes, cluster = NULL, name = "", byType = FALSE){
 
 # Run fgsea function from DEA results using GO database and produce networkPlot and barPlot 
 gseaRES <- function(clusters, markers = NULL, fgsea_sets, minSize = 12, adj = TRUE, 
-                    type = "condition", input = "immune", save=""){
+                    type = "condition", input = "immune", save="", out = "png"){
   for (cluster in clusters){
     try({
       if (type == "condition"){
         if(input == "immune"){
-          
           #file=paste0("TEPA_results/S03_immuneBulkDEA.csv")
-          file=paste0("TEPA_results/S03_immuneCond_DEA_",cluster,".csv")
+          file=paste0("TEPA_results/S03_immuneCond_DEA_",gsub(" ", "_", cluster),".csv")
         } else if (input == "tumor"){
           file=paste0("TEPA_results/S05_tumorBulkDEA.csv")
-          #file=paste0("TEPA_results/S05_tumorCond_DEA_",cluster,".csv")
+          #file=paste0("TEPA_results/S05_tumorCond_DEA_",gsub(" |/", "_", cluster),".csv")
         } else if (input == "nanoCond_gInf"){
             file = paste0("TEPA_results/N00_nanoCond_gInf_DEA.csv")
         } else if (input == "nanoInf_gCond"){
@@ -237,8 +254,16 @@ gseaRES <- function(clusters, markers = NULL, fgsea_sets, minSize = 12, adj = TR
       # Run GSEA
       fgseaRes<- fgsea(fgsea_sets, stats = ranked.genes, minSize = minSize, maxSize = Inf)
       if (adj) {fgseaRes$padj = p.adjust(fgseaRes$pval, method='BH')}
-      fgseaRes <- fgseaRes[fgseaRes$padj <= 0.05] %>% arrange(desc(NES))
+      fgseaRes <- fgseaRes[fgseaRes$padj <= 0.3] %>% arrange(desc(NES))
       fgseaRes <- as.data.frame(fgseaRes)
+      
+      # enr <- plotEnrichment(fgsea_sets[["N1 ANTI-TUMOR NEUTROPHILS"]],
+      #                ranked.genes) + labs(title="N1 ANTI-TUMOR NEUTROPHILS") + geom_line(color="#045A8D")
+      # #NES = -1.7
+      # 
+      # file=paste0("TEPA_final_figures/S05_N1_NEUTROPHILS.pdf")
+      # ggsave(enr, file = file, width = 10, height = 10, units = "cm")
+      
     
       # Generate enrichment plots 
       if (nrow(fgseaRes) > 0) {
@@ -250,13 +275,13 @@ gseaRES <- function(clusters, markers = NULL, fgsea_sets, minSize = 12, adj = TR
       
       ## Network
       cnet <- suppressWarnings(networkPlotGSEA(fgseaResPlot, ranked.genes, cluster, CNET_gene_cutoff = 10))
-      file=paste0("TEPA_plots/",save, "cnet_",sub(" ", "_", cluster),".png")
+      file=paste0("TEPA_plots/",save, "cnet_",sub(" ", "_", cluster),".", out)
       ggsave(cnet, file = file, width = 30, height = 30, units = "cm")
       
       ## Barplot
       b <- barPlotGSEA(fgseaRes, cluster, name = cluster)
-      file=paste0("TEPA_plots/",save, "barplot_",sub(" ", "_", cluster),".png")
-      ggsave(b, file = file,width = 20, height = ifelse(nrow(fgseaRes) > 4, nrow(fgseaRes)/1.5, nrow(fgseaRes) + 3), units = "cm")
+      file=paste0("TEPA_plots/",save, "barplot_",sub(" ", "_", cluster),".", out)
+      ggsave(b, file = file,width = 20, height = ifelse(nrow(fgseaRes) > 4, nrow(fgseaRes)/1.5, nrow(fgseaRes) + 4), units = "cm")
       
       # Save dataframe
       df <- apply(fgseaRes,2,as.character)
@@ -267,20 +292,21 @@ gseaRES <- function(clusters, markers = NULL, fgsea_sets, minSize = 12, adj = TR
   )}
 }
 
-gseaPlotRes <- function(clusters, save=""){
+gseaPlotRes <- function(clusters, save="", out="png"){
   for (cluster in clusters){
     message(paste0("GSEA for cluster: ", cluster))
     
     # Load DEA analysis
-    res <- read.csv(paste0("TEPA_results/02_DEAclusterMAST",cluster,".csv"), sep=",")
-    ranked.genes<- deframe(res %>%
-                             dplyr::filter(p_val_adj < 0.01) %>%
-                             arrange(desc(avg_log2FC)) %>% 
-                             dplyr::select(X, avg_log2FC))
+    res <- read.csv(paste0("TEPA_results/",save, cluster,".csv"), sep=",")
+    ranked.genes.df<- res %>%
+      arrange(desc(avg_log2FC)) %>% 
+      dplyr::select(avg_log2FC, X)
+    ranked.genes <- ranked.genes.df$avg_log2FC
+    names(ranked.genes) <- ranked.genes.df$X
     ranked.genes <- ranked.genes[!is.na(names(ranked.genes))]
     
     # Load GSEA analysis
-    filename = paste0("TEPA_results/05_GSEAclusterMSIG",cluster,"SHORT.csv")
+    filename = paste0("TEPA_results/",save, cluster,"SHORT.csv")
     
     if (file.exists(filename)){
       fgseaRes <- read.csv(filename, sep=";")
@@ -294,11 +320,11 @@ gseaPlotRes <- function(clusters, save=""){
       
       ## Network
       cnet <- suppressWarnings(networkPlotGSEA(fgseaResPlot, ranked.genes, cluster, CNET_gene_cutoff = 10))
-      ggsave(cnet, file=paste0("TEPA_plots/05_clProf_cnetMSIG_",paste(cluster, collapse = "_"),save,".png"), width = 30, height = 30, units = "cm")
+      ggsave(cnet, file=paste0("TEPA_plots/",paste(cluster, collapse = "_"),save,"_cnet.", out), width = 50, height = 50, units = "cm")
       
       ## Barplot
       b <- barPlotGSEA(fgseaRes, cluster)
-      ggsave(b, file=paste0("TEPA_plots/05_clProf_barplotMSIG_",paste(cluster, collapse = "_"),save,".png"),width = 50, height = ifelse(nrow(fgseaRes) > 3, nrow(fgseaRes)/1.5, nrow(fgseaRes) + 1), units = "cm")
+      ggsave(b, file=paste0("TEPA_plots/",paste(cluster, collapse = "_"),save,"_barplot.", out),width = 50, height = ifelse(nrow(fgseaRes) > 3, nrow(fgseaRes)/1.5, nrow(fgseaRes) + 1), units = "cm")
     }
   }
 }
@@ -346,9 +372,9 @@ gseaJointNet <- function (clusters, immune = TRUE, save=""){
   cell_types = list()
   for (cluster in clusters){
     if(immune){
-      file=paste0("TEPA_results/S03_immuneCond_DEA_",cluster,".csv")
+      file=paste0("TEPA_results/S03_immuneCond_DEA_",gsub(" ", "_", cluster),".csv")
     } else {
-      file=paste0("TEPA_results/S07_tumorCond_DEA_",cluster,".csv")
+      file=paste0("TEPA_results/S07_tumorCond_DEA_",gsub(" ", "_", cluster),".csv")
     } 
     res <- read.csv(file = file, sep=",")
     ranked.genes.df<- res %>%
@@ -383,5 +409,147 @@ gseaJointNet <- function (clusters, immune = TRUE, save=""){
   write.csv(df, file = file)
   
   return(gseaByCellType)
+}
+
+# Plotting gene sets ####
+library(stringr)
+library(tidyverse)
+library(ComplexHeatmap)
+library(circlize)
+
+sign_dotPlot <- function(obj, sign, immune = TRUE, legend = TRUE, k = 3, cluster = TRUE){
+  Idents(obj) <- "celltypes"
+  p <- DotPlot(object = obj, features = sign, 
+               scale=FALSE, col.min = -4, col.max = 4, assay = "RNA",
+               dot.min = 0, dot.scale = 2, cols = c("blue","red")) + RotatedAxis() + coord_flip() +
+    theme(axis.text.x = element_text(size=7), axis.text.y = element_text(size=7))
+  df <- p$data
+  
+  ### the matrix for the scaled expression 
+  exp_mat<-df %>% 
+    select(-pct.exp, -avg.exp) %>%  
+    pivot_wider(names_from = id, values_from = avg.exp.scaled) %>% 
+    as.data.frame() 
+  
+  row.names(exp_mat) <- exp_mat$features.plot  
+  exp_mat <- exp_mat[,-1] %>% as.matrix()
+  
+  percent_mat<-df %>% 
+    select(-avg.exp, -avg.exp.scaled) %>%  
+    pivot_wider(names_from = id, values_from = pct.exp) %>% 
+    as.data.frame() 
+  
+  row.names(percent_mat) <- percent_mat$features.plot  
+  percent_mat <- percent_mat[,-1] %>% as.matrix()
+  
+  quantile(exp_mat, c(0.1, 0.3, 0.7, 0.99))
+  
+  cell_fun = function(j, i, x, y, w, h, fill){
+    grid.rect(x = x, y = y, width = w, height = h, 
+              gp = gpar(col = NA, fill = NA))
+    grid.circle(x=x,y=y,r= (percent_mat[i, j]/100 * min(unit.c(w, h)))/1.5,
+                gp = gpar(fill = col_fun(exp_mat[i, j]), col = NA))}
+  names(cellt_col) <- levels(obj$celltypes)
+  
+  if (immune){
+    ha = HeatmapAnnotation(show_legend = legend,
+                           celltypes = levels(obj$celltypes),
+                           col = list("celltypes" = cellt_col[1:13]))
+  } else {
+    ha = HeatmapAnnotation(show_legend = legend,
+                           celltypes = levels(obj$celltypes),
+                           col = list("celltypes" = cellt_col))
+  }
+  
+  col_fun = colorRamp2(seq(min(exp_mat), max(exp_mat), length.out = 2), c("#EEEEEE", "red"))
+  Heatmap(exp_mat,
+          heatmap_legend_param=list(title="z-score"),
+          col=col_fun,
+          #clustering_distance_rows = "pearson",
+          rect_gp = gpar(type = "none"),
+          cell_fun = cell_fun,
+          cluster_columns = FALSE,
+          cluster_rows = cluster,
+          column_order = NULL,
+          row_names_gp = gpar(fontsize = 15, color = "white", lwd = 2),
+          row_title = NULL,
+          row_km = ifelse(cluster,k,1),
+          use_raster = TRUE,
+          raster_quality = 5,
+          raster_resize_mat = TRUE,
+          column_names_rot = 45,
+          row_dend_reorder = TRUE,
+          top_annotation = ha,
+          heatmap_width = unit(25, "cm"), 
+          heatmap_height = unit(30, "cm"),
+          border_gp = gpar(col = "black", unit(10, "mm")))
+  
+}
+
+
+sign_avgHeatMap <- function(obj, sign, immune = TRUE, 
+                            legend = TRUE, k = 3, cluster = TRUE,
+                            w = 25, h = 30){
+  
+  # Expression data
+  my_data <- AverageExpression(
+    obj,
+    assays = "RNA",
+    features = sign,
+    group.by = c("celltypes", "condition"),
+    slot = "scale.data")$RNA
+  
+  # order of annotations/colors are defined here
+  ordered_meta_data <- str_split_fixed(colnames(my_data), '_', 2)
+  rownames(ordered_meta_data) <- colnames(my_data)   
+  colnames(ordered_meta_data) <- c("celltypes", "condition")
+  
+  #levels(cellt_col) <- levels(seuset_full$celltypes)
+  names(cellt_col) <- levels(obj$celltypes)
+  
+  if (immune){
+    annotation_colors <- list("celltypes" = cellt_col[1:13],
+                              "condition" = cond_col)
+  } else{
+    annotation_colors <- list("celltypes" = cellt_col,
+                              "condition" = cond_col)
+  }
+  
+  ha = HeatmapAnnotation(df = as.data.frame(ordered_meta_data),
+                         show_legend = legend,
+                         show_annotation_name = TRUE,
+                         col = annotation_colors,
+                         annotation_legend_param = list(
+                           celltypes = list(
+                             labels = levels(obj$celltypes)),
+                           title = "celltypes"
+                         ))
+  
+  col_fun = colorRamp2(c(-2, 0, 2), c("blue", "white", "red"))
+  
+  Heatmap(
+    my_data,
+    col = col_fun,
+    cluster_rows = cluster,
+    row_km = ifelse(cluster,k,1),
+    heatmap_legend_param=list(title="z-score"),
+    row_names_gp = gpar(fontsize = 15, color = "white", lwd = 2),
+    cluster_columns = FALSE,
+    column_order = NULL,
+    show_row_dend = TRUE,
+    show_column_dend = FALSE,
+    show_row_names = TRUE,
+    show_column_names = FALSE,
+    column_names_rot = 45,
+    bottom_annotation = NULL,
+    top_annotation = ha,
+    use_raster = FALSE,
+    heatmap_width = unit(w, "cm"), 
+    heatmap_height = unit(h, "cm")
+    #raster_by_magick = TRUE,
+    #raster_quality = 5,
+    #raster_resize_mat = TRUE
+  )
+  
 }
 

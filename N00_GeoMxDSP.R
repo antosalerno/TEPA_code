@@ -8,6 +8,9 @@ BiocManager::install("GeoMxWorkflows")
 library(NanoStringNCTools)
 library(GeomxTools)
 library(GeoMxWorkflows)
+library(knitr)
+library(dplyr)
+library(ggforce)
 library(ggplot2)
 library(ggcharts)
 library(MAST)
@@ -54,10 +57,6 @@ pData(protocolData(data))$Group <- group
 
 ### 2 - Study Design ####
 
-library(knitr)
-library(dplyr)
-library(ggforce)
-
 count_mat <- dplyr::count(pData(protocolData(data)), Core, Group, Condition, Infiltration) %>%
   mutate(Condition = as.character(Condition)) %>% 
   mutate(Infiltration = as.character(Infiltration))
@@ -85,7 +84,8 @@ p <- ggplot(test_gr, aes(x, id = id, split = y, value = n)) +
            y = 0, yend = 105, lwd = 2) +
   annotate(geom = "text", x = 3.19, y = 63, angle = 90, size = 5,
            hjust = 0.5, label = "100 ROIs")
-ggsave(p, file=paste0("TEPA_plots/", save, ".png"), width = 30, height = 30, units = "cm")
+#ggsave(p, file=paste0("TEPA_plots/", save, ".png"), width = 30, height = 30, units = "cm")
+ggsave(p, file=paste0("TEPA_final_figures/", save, ".pdf"), width = 30, height = 30, units = "cm")
 
 #### 3 - QC and preprocessing ####
 
@@ -221,6 +221,7 @@ dev.off()
 # Then go to a new file and first do the tests (N01) and 
 
 #### 5 - Dimensionality reduction ####
+seuset_nano <- LoadH5Seurat("TEPA_results/N00_seusetNano.h5Seurat")
 
 seuset_nano <- FindVariableFeatures(seuset_nano)
 seuset_nano <- ScaleData(seuset_nano)
@@ -230,7 +231,7 @@ seuset_nano <- RunPCA(seuset_nano, assay = "GeoMx", verbose = FALSE, approx=FALS
 pct <- seuset_nano@reductions$pca@stdev / sum(seuset_nano@reductions$pca@stdev) * 100
 # Calculate cumulative percents for each PC
 cum <- cumsum(pct)
-head(cum, n=50) # Select 60 PCs to retain 73.8% of variability
+head(cum, n=50) # Select 50 PCs to retain 86.55% of variability
 
 seuset_nano <- FindNeighbors(seuset_nano, reduction = "pca", dims = 1:50)
 seuset_nano <- FindClusters(seuset_nano, resolution = 0.8)
@@ -240,63 +241,33 @@ png("TEPA_plots/N00_clustROIs.png", h = 3000, w = 2500, res = 300)
 DimPlot(seuset_nano, reduction = "umap", pt.size = 5,
         label = F, group.by = "seurat_clusters")
 dev.off()
-# 3 groups, would they reflect Core?
+# 2 groups, would they reflect Core?
 
 png("TEPA_plots/N00_umapExplore.png", w = 6000, h = 4000, res = 300)
 DimPlot(object = seuset_nano, pt.size = 5, reduction = 'umap', ncol = 2, 
         group.by = c("Group", "Infiltration","Condition","seurat_clusters"), label = TRUE) +
   ggtitle(paste(as.character(nrow(seuset_nano@meta.data)), " cells")) +
   theme(plot.title = element_text(hjust = 0.5))
-dev.off()
-
-Idents(seuset_nano) <- "seurat_clusters"
-clusters = levels(Idents(seuset_nano))
-
-# 5.1 - Find markers for every cluster 
-nano.markers <- FindAllMarkers(seuset_nano, 
-                                 only.pos = FALSE, 
-                                 #min.pct = 0.5, 
-                                 #min.diff.pct = 0.2,
-                                 #logfc.threshold = 0.5, 
-                                 test.use="MAST",
-                                 latent.vars="Core")
-nano.markers$p_val_adj = p.adjust(nano.markers$p_val, method='BH')
-write.csv(nano.markers, "TEPA_results/N00_DEA_clusterMarkers.csv")
-
-wb <- createWorkbook()
-for(c in 1:length(clusters)){
-  cluster = nano.markers[nano.markers$cluster == clusters[c],]
-  addWorksheet(wb, as.character(clusters[c]))
-  writeData(wb, as.character(clusters[c]), cluster[,2:ncol(cluster)], colNames = TRUE)
-}
-saveWorkbook(wb, file="TEPA_results/N00_DEA_clusterMarkers.xlsx", overwrite = TRUE)
-
-png("TEPA_plots/N00_nanoMarkersHeatmap.png", h = 4000, w = 6000, res = 300)
-top10 <- nano.markers %>% group_by(cluster) %>% top_n(n = 15, wt = avg_log2FC)
-DoHeatmap(object = subset(seuset_nano, downsample = 500), size = 6, 
-           features = top10$gene) +
-  scale_fill_gradientn(colors = c("blue", "black", "red")) + 
-  theme(axis.text = element_text(size=15)) + NoLegend() +
-  theme(plot.margin = margin(2,2,1.5,1.2, "cm"))
-dev.off()
+dev.off() # It looks like there's no pattern
 
 #### 6 - Differential expression analysis ####
 # Check in parallel expression of DEA genes in the different cell types
 seuset_immune <- LoadH5Seurat("TEPA_results/S04_immuneDiff.h5Seurat")
+seuset_nano@assays$GeoMx@scale.data <- scale(seuset_nano@assays$GeoMx@counts)
 
 # 5.2 Infiltration vs Non-Infiltration given Treatment
 
 Idents(seuset_nano) <- "Infiltration"
 seuset_nanoTEPA <- subset(seuset_nano, Condition == "Treatment")
 
+seuset_nanoTEPA@assays$GeoMx@scale.data <- scale(seuset_nanoTEPA@assays$GeoMx@counts)
 res <- FindMarkers(seuset_nanoTEPA, ident.1 = "T", ident.2 = "F",
-                   only.pos = FALSE, verbose = FALSE,
-                   latent.vars="Core",
-                   test.use="MAST")
+                   only.pos = FALSE, verbose = FALSE, assay= "GeoMx",
+                   test.use="negbinom")
 res$p_val_adj = p.adjust(res$p_val, method='BH')
 write.csv(res, file=paste0("TEPA_results/N00_nanoInf_gCond_DEA.csv"))
 
-log2FC = 0.25
+log2FC = 0.5
 save = "N00_nanoInf_gCond_"
 
 p <- EnhancedVolcano(res, subtitle = "",
@@ -304,29 +275,36 @@ p <- EnhancedVolcano(res, subtitle = "",
                      lab = rownames(res),
                      x = 'avg_log2FC',
                      y = 'p_val_adj',
-                     xlim = c(-2.5, 2.5),
+                     xlim = c(-3.5, 6),
+                     ylim = c(0, 9),
                      title = "DEA Infiltrated vs Non-Infiltrated TME (TEPA-treated ROIs)",
                      pCutoff = 0.05, 
                      FCcutoff = log2FC,
                      labFace = "bold",
-                     labSize = 3,
+                     labSize = 4,
                      col = c('lightgrey', 'pink', 'lightblue', 'salmon'),
                      colAlpha = 4/5,
                      legendLabSize = 14,
                      legendIconSize = 4.0,
                      drawConnectors = TRUE,
-                     widthConnectors = 0.3,colConnectors = 'gray51', maxoverlapsConnectors = 80,
+                     widthConnectors = 0.3,
+                     colConnectors = 'gray51', maxoverlapsConnectors = 40,
                      caption = paste0('Upregulated = ', nrow(res[res$avg_log2FC>log2FC&res$p_val_adj<=0.05,]), ' genes',
                                       "\n",'Downregulated = ', nrow(res[res$avg_log2FC< -log2FC&res$p_val_adj<=0.05,]), ' genes'))+ theme(plot.title = element_text(hjust = 0.5)) + coord_flip()
-ggsave(p, file=paste0("TEPA_plots/", save, "DEA.png"), width = 30, height = 25, units = "cm")
+#ggsave(p, file=paste0("TEPA_plots/", save, "DEA.png"), width = 30, height = 25, units = "cm")
+ggsave(p, file=paste0("TEPA_final_figures/", save, "DEA.pdf"), width = 30, height = 25, units = "cm")
+
+# ZNRF1 involved in ubiquitination of EGFR
+# Mt2 down
 
 ranked.genes<- res %>%
-  filter(p_val_adj < 0.05) %>%
+  filter(p_val_adj < 0.1) %>%
   arrange(desc(avg_log2FC))
 ranked.genes <- rownames(ranked.genes)[!is.na(rownames(ranked.genes))]
 
 png(paste0("TEPA_plots/",save,"DotPlot.png"), h = 2000, w = 2500, res = 300)
-DotPlot(object = seuset_immune, features = ranked.genes,  split.by = "condition",
+Idents(seuset_immune) <- "celltypes"
+DotPlot(object = seuset_immune, features = ranked.genes[1:30], 
         scale=TRUE, dot.scale = 5,
         assay = "RNA", cols = c("blue","red")) + RotatedAxis() + coord_flip() +
   theme(axis.text.x = element_text(size=7), axis.text.y = element_text(size=7))
@@ -335,11 +313,12 @@ dev.off()
 png(paste0("TEPA_plots/",save,"Heatmap.png"), h = 4000, w = 6000, res = 300)
 Idents(seuset_nano) <- "Infiltration"
 DoHeatmap(object = subset(seuset_nanoTEPA, downsample = 500), size = 6, 
-          features = head(ranked.genes, 20)) +
+          group.by = "Infiltration",
+          features = head(ranked.genes, 30)) +
   scale_fill_gradientn(colors = c("blue", "black", "red")) + 
-  theme(axis.text = element_text(size=15)) + NoLegend() +
-  theme(plot.margin = margin(2,2,1.5,1.2, "cm"))
+  theme(axis.text = element_text(size=15)) + NoLegend()
 dev.off()
+
 
 # 5.4 Treatment vs Control given Infiltration
 
@@ -347,13 +326,13 @@ Idents(seuset_nano) <- "Condition"
 seuset_nanoINF <- subset(seuset_nano, Infiltration == "T")
 res <- FindMarkers(seuset_nanoINF, ident.1 = "Treatment", ident.2 = "Control",
                    only.pos = FALSE, verbose = FALSE,
-                   latent.vars="Core",
-                   test.use="MAST")
+                   #latent.vars="Core",
+                   test.use="negbinom")
 res$p_val_adj = p.adjust(res$p_val, method='BH')
 write.csv(res, file=paste0("TEPA_results/N00_nanoCond_gInf_DEA.csv"))
 
-log2FC = 0.3
-save = "N00_nanoCond_gInf2_"
+log2FC = 0.5
+save = "N00_nanoCond_gInf"
 
 p <- EnhancedVolcano(res, subtitle = "",
                      #selectLab = markers,
@@ -361,20 +340,23 @@ p <- EnhancedVolcano(res, subtitle = "",
                      x = 'avg_log2FC',
                      y = 'p_val_adj',
                      xlim = c(-2.5, 2.5),
-                     title = "DEA Treatment vs Control given Infiltration",
-                     pCutoff = 0.1, 
+                     ylim = c(0, 10),
+                     title = "DEA Treatment vs Control (Infiltrated ROIs)",
+                     pCutoff = 0.05, 
                      FCcutoff = log2FC,
                      labFace = "bold",
-                     labSize = 3,
+                     labSize = 4,
                      col = c('lightgrey', 'pink', 'lightblue', 'salmon'),
                      colAlpha = 4/5,
                      legendLabSize = 14,
                      legendIconSize = 4.0,
                      drawConnectors = TRUE,
-                     widthConnectors = 0.3,colConnectors = 'gray51', maxoverlapsConnectors = 80,
+                     widthConnectors = 0.3,
+                     colConnectors = 'gray51', maxoverlapsConnectors = 80,
                      caption = paste0('Upregulated = ', nrow(res[res$avg_log2FC>log2FC&res$p_val_adj<=0.05,]), ' genes',
                                       "\n",'Downregulated = ', nrow(res[res$avg_log2FC< -log2FC&res$p_val_adj<=0.05,]), ' genes'))+ theme(plot.title = element_text(hjust = 0.5)) + coord_flip()
-ggsave(p, file=paste0("TEPA_plots/", save, "DEA.png"), width = 30, height = 25, units = "cm")
+#ggsave(p, file=paste0("TEPA_plots/", save, "DEA.png"), width = 30, height = 25, units = "cm")
+ggsave(p, file=paste0("TEPA_final_figures/", save, "DEA.pdf"), width = 30, height = 25, units = "cm")
 
 ranked.genes<- res %>%
   filter(p_val_adj < 0.1) %>%
@@ -382,8 +364,8 @@ ranked.genes<- res %>%
 ranked.genes <- rownames(ranked.genes)[!is.na(rownames(ranked.genes))]
 
 png(paste0("TEPA_plots/",save,"DotPlot.png"), h = 2000, w = 2500, res = 300)
-DotPlot(object = seuset_immune, features = ranked.genes, 
-        scale=TRUE, dot.scale = 5,
+DotPlot(object = seuset_immune, features = ranked.genes[1:30], 
+        scale=TRUE, dot.scale = 5, 
         assay = "RNA", cols = c("blue","red")) + RotatedAxis() + coord_flip() +
   theme(axis.text.x = element_text(size=7), axis.text.y = element_text(size=7))
 dev.off()
@@ -391,7 +373,7 @@ dev.off()
 png(paste0("TEPA_plots/",save,"Heatmap.png"), h = 4000, w = 6000, res = 300)
 Idents(seuset_nanoINF) <- "Condition"
 DoHeatmap(object = subset(seuset_nanoINF, downsample = 500), size = 6, 
-          features = head(ranked.genes, 20)) +
+          features = head(ranked.genes, 40)) +
   scale_fill_gradientn(colors = c("blue", "black", "red")) + 
   theme(axis.text = element_text(size=15)) + NoLegend() +
   theme(plot.margin = margin(2,2,1.5,1.2, "cm"))
@@ -402,13 +384,13 @@ dev.off()
 Idents(seuset_nano) <- "Condition"
 res <- FindMarkers(seuset_nano, ident.1 = "Treatment", ident.2 = "Control",
                    only.pos = FALSE, verbose = FALSE,
-                   latent.vars="Core",
-                   test.use="MAST")
+                   #latent.vars="Core",
+                   test.use="negbinom")
 res$p_val_adj = p.adjust(res$p_val, method='BH')
 write.csv(res, file=paste0("TEPA_results/N00_nanoCond_DEA.csv"))
 
-log2FC = 0.3
-save = "N00_nanoCond_noT3_"
+log2FC = 0.5
+save = "N00_nanoCond"
 
 p <- EnhancedVolcano(res, subtitle = "",
                      #selectLab = markers,
@@ -420,7 +402,7 @@ p <- EnhancedVolcano(res, subtitle = "",
                      pCutoff = 0.05, 
                      FCcutoff = log2FC,
                      labFace = "bold",
-                     labSize = 3,
+                     labSize = 4,
                      col = c('lightgrey', 'pink', 'lightblue', 'salmon'),
                      colAlpha = 4/5,
                      legendLabSize = 14,
@@ -438,8 +420,8 @@ ranked.genes<- res %>%
 ranked.genes <- rownames(ranked.genes)[!is.na(rownames(ranked.genes))]
 
 png(paste0("TEPA_plots/",save,"DotPlot.png"), h = 2000, w = 2500, res = 300)
-Idents(seuset_immune) <- "scType"
-DotPlot(object = seuset_immune, features = ranked.genes,  
+Idents(seuset_immune) <- "celltypes"
+DotPlot(object = seuset_immune, features = ranked.genes[1:30],  
         scale=TRUE, dot.scale = 5,
         assay = "RNA", cols = c("blue","red")) + RotatedAxis() + coord_flip() +
   theme(axis.text.x = element_text(size=7), axis.text.y = element_text(size=7))
@@ -463,39 +445,70 @@ seuset_nano <- LoadH5Seurat("TEPA_results/N00_seusetNanoRed.h5Seurat")
 
 sets1 <- read.gmt("TEPA_data/mh.all.v2022.1.Mm.symbols.gmt") # Mouse hallmark
 sets2 <- read.gmt("TEPA_data/GOBP_CELL_MOTILITY.v2023.1.Mm.gmt")
-#sets2 <- read.gmt("TEPA_data/m2.cp.reactome.v2022.1.Mm.symbols.gmt") # Reactome
-#sets3 <- read.gmt("TEPA_data/m8.all.v2023.1.Mm.symbols.gmt") # Cell types
+sets3 <- read.gmt("TEPA_data/REACTOME_NEUTROPHIL_DEGRANULATION.v2022.1.Mm.gmt") # The only Reactome pathway we're interested in
+sets4 <- read.gmt("TEPA_data/REACTOME_ENOS_ACTIVATION.v2023.1.Mm.gmt") # REACTOME_ENOS_ACTIVATION
+sets5 <- read.gmt("TEPA_data/REACTOME_PENTOSE_PHOSPHATE_PATHWAY.v2023.1.Mm.gmt")
+sets6 <- read.gmt("TEPA_data/WP_OXIDATIVE_STRESS_AND_REDOX_PATHWAY.v2023.1.Mm.gmt")
+sets7 <- read.gmt("TEPA_data/WP_OXIDATIVE_STRESS_RESPONSE.v2023.1.Mm.gmt")
+sets8 <- read.gmt("TEPA_data/WP_OXIDATIVE_DAMAGE_RESPONSE.v2023.1.Mm.gmt")
+sets9 <- read.gmt("TEPA_data/REACTOME_CITRIC_ACID_CYCLE_TCA_CYCLE.v2023.1.Mm.gmt")
+sets10 <- read.gmt("TEPA_data/REACTOME_DNA_DOUBLE_STRAND_BREAK_RESPONSE.v2023.1.Mm.gmt")
 
 sets1$term <- as.character(sets1$term)
 sets2$term <- as.character(sets2$term)
-#sets3$term <- as.character(sets3$term)
+sets3$term <- as.character(sets3$term)
+sets4$term <- as.character(sets4$term)
+sets5$term <- as.character(sets5$term)
+sets6$term <- as.character(sets6$term)
+sets7$term <- as.character(sets7$term)
+sets8$term <- as.character(sets8$term)
+sets9$term <- as.character(sets9$term)
+sets10$term <- as.character(sets10$term)
 
 sets1 <- sets1 %>% split(x = .$gene, f = .$term)
 sets2 <- sets2 %>% split(x = .$gene, f = .$term)
-#sets3 <- sets3 %>% split(x = .$gene, f = .$term)
+sets3 <- sets3 %>% split(x = .$gene, f = .$term)
+sets4 <- sets4 %>% split(x = .$gene, f = .$term)
+sets5 <- sets5 %>% split(x = .$gene, f = .$term)
+sets6 <- sets6 %>% split(x = .$gene, f = .$term)
+sets7 <- sets7 %>% split(x = .$gene, f = .$term)
+sets8 <- sets8 %>% split(x = .$gene, f = .$term)
+sets9 <- sets9 %>% split(x = .$gene, f = .$term)
+sets10 <- sets10 %>% split(x = .$gene, f = .$term)
+#sets3 <- sets3 %>% split(x = .$gene_symbol, f = .$gs_name)
 
+fgsea_sets <- list()
 fgsea_sets <- append(sets1, sets2)
-#fgsea_sets <- append(fgsea_sets, sets3)
+fgsea_sets <- append(fgsea_sets, sets3)
+fgsea_sets <- append(fgsea_sets, sets4)
+fgsea_sets <- append(fgsea_sets, sets5)
+fgsea_sets <- append(fgsea_sets, sets6)
+fgsea_sets <- append(fgsea_sets, sets7)
+fgsea_sets <- append(fgsea_sets, sets8)
+fgsea_sets <- append(fgsea_sets, sets9)
+fgsea_sets <- append(fgsea_sets, sets10)
 fgsea_sets <- append(fgsea_sets, custom)
+fgsea_sets <- append(fgsea_sets, copper_sign)
 
-save = "N00_infTEPA_Enrichment2_"
+save = "N00_infTEPA_Enrichment"
 Idents(seuset_nano) <- "Infiltration"
-seuset_nanoINF <- subset(seuset_nano, Infiltration == "T")
-clusters = levels(Idents(seuset_nanoINF))
-gseaRES(clusters, fgsea_sets = fgsea_sets, save = save, input = "nanoInf_gCond")
+clusters = levels(Idents(seuset_nano))
+gseaRES(clusters, fgsea_sets = fgsea_sets, save = save, out="pdf", input = "nanoInf_gCond")
 
 ### 7.3 - Treatment vs Control given Infiltration
 save = "N00_TEPAInf_Enrichment_"
 Idents(seuset_nano) <- "Condition"
-seuset_nanoTEPA <- subset(seuset_nano, Condition == "Treatment")
-clusters = levels(Idents(seuset_nanoTEPA))
-gseaRES(clusters, fgsea_sets = fgsea_sets, save = save, input = "nanoCond_gInf")
+clusters = levels(Idents(seuset_nano))
+gseaRES(clusters, fgsea_sets = fgsea_sets, save = save, out="pdf", input = "nanoCond_gInf")
 
 ### 7.4 - Treatment vs Control 
-save = "N00_TEPA_Enrichment2_"
+save = "N00_TEPA_Enrichment_"
 Idents(seuset_nano) <- "Condition"
 clusters = levels(Idents(seuset_nano))
-gseaRES(clusters, fgsea_sets = fgsea_sets, save = save, input = "nanoCond")
+gseaRES(clusters, fgsea_sets = fgsea_sets, save = save, out="pdf", input = "nanoCond")
+
+# TRY THE NETWORK
+
 
 #### 8 - Deconvolution analysis using SingleR ####
 
@@ -519,7 +532,7 @@ library("SingleR")
 pred <- SingleR(test=dataSC, ref=dataBulk, labels=labels, de.method="wilcox")
 table(pred$labels)
 
-### 9 - Expression of single genes ####
+### 9 - Expression of single genes and gene sets ####
 # Search all isoforms of gene of interest
 grep(pattern = "Cd8", 
      x = rownames(x = seuset_nano@assays$GeoMx@data), 
@@ -534,6 +547,102 @@ DoHeatmap(object = subset(seuset_nano, downsample = 500), size = 6,
   theme(plot.margin = margin(2,2,1.5,1.2, "cm")) 
 dev.off()
 
+png("TEPA_plots/N00_Cd34_CompareCond.png", h = 2000, w = 3500, res = 200)
+Idents(seuset_nano) <- "Condition"
+DoHeatmap(object = subset(seuset_nano, downsample = 500), size = 6,
+          features = c("Cd34", "Itgam", "Ptprc")) +
+  scale_fill_gradientn(colors = c("blue", "black", "red")) + 
+  theme(axis.text = element_text(size=15)) + 
+  theme(plot.margin = margin(2,2,1.5,1.2, "cm")) 
+dev.off()
 
+#png("TEPA_plots/S05_tumorMt1.png", h = 2000, w = 2000, res = 200)
+pdf("TEPA_final_figures/N00_tumorMt1.pdf", h = 4, w = 4)
+Idents(seuset_nano) <- "Infiltration"
+levels(Idents(seuset_nano)) <- c("F", "T")
+VlnPlot(seuset_nano, features =  c("Mt1"), assay = "GeoMx", slot="scale.data",
+        cols = inf_col, ncol = 1, pt.size = 0) + 
+  ylim(0,1.5) +
+  #geom_signif(xmin = 1, xmax = 1.5, y_position = 2, annotations="***")+
+  geom_boxplot(width=.1, outlier.size = 0.5)
+dev.off()
+
+#png("TEPA_plots/S05_tumorMt2.png", h = 2000, w = 2000, res = 200)
+pdf("TEPA_final_figures/S05_tumorMt2.pdf", h = 4, w = 4)
+Idents(seuset_tumor) <- "condition"
+VlnPlot(seuset_tumor, features =  c("Mt2"),
+        cols = cond_col, ncol = 1, pt.size = 0) + 
+  ylim(-1,5) +
+  geom_signif(xmin = 1, xmax = 2, y_position = 4, annotations="***")+
+  geom_boxplot(width=.1, outlier.size = 0.5)
+dev.off()
+
+#png("TEPA_plots/S05_tumorMycn.png", h = 2000, w = 2000, res = 200)
+pdf(qq("TEPA_final_figures/S05_tumorMycn.pdf"), h = 4, w = 4)
+Idents(seuset_tumor) <- "condition"
+VlnPlot(seuset_tumor, features =  "Mycn", cols = cond_col,
+        ncol = 1, pt.size = 0) + 
+  ylim(0,6) +
+  geom_signif(xmin = 1, xmax = 2, y_position = 5.25, annotations="***") +
+  geom_boxplot(width=.1, outlier.size = 0.5)
+dev.off()
+
+
+
+immune_evasion <- c("Adora2a", "Arg1", "Arg2", "Cd274", "Cd276", "Cd47", "Cd80", "Cd83", "Cd86",
+                    "Icosl", "Ido1", "Lgals3", "Pvr", "Tgfb1", "Tlr1", "Tlr2", "Tlr3", "Tlr4",
+                    "Tlr5", "Tlr6", "Tlr7", "Tnfsf4", "Tnfsf9", "H2-D1", "H2-Ab1", "H2-Aa",
+                    "H2-Eb1", "H2-Eb2", "H2-Ea", "H-2Dq", "H-2Lq")
+
+my_data <- AverageExpression(
+  seuset_nano,
+  features = copper_genes,
+  group.by = c("Infiltration","Condition"),
+  slot = "scale.data")$GeoMx
+
+# order of annotations/colors are defined here
+ordered_meta_data <- str_split_fixed(colnames(my_data), '_', 2)
+rownames(ordered_meta_data) <- colnames(my_data)   
+colnames(ordered_meta_data) <- c("Infiltration", "Condition")
+
+annotation_colors <- list("Infiltration" = inf_col,
+                          "Condition" = cond_col)
+
+ha = HeatmapAnnotation(df = as.data.frame(ordered_meta_data),
+                       show_legend = TRUE,
+                       show_annotation_name = TRUE,
+                       col = annotation_colors)
+
+
+col_fun = colorRamp2(c(-2, 0, 2), c("blue", "white", "red"))
+
+save = "N00_complexHeat_Copper_sign"
+#png(paste0("TEPA_plots/",save,".png"), h = 5000, w = 6000, res = 400)
+pdf(qq(paste0("TEPA_final_figures/",save,".pdf")), h = 15, w = 15)
+
+Heatmap(
+  my_data,
+  col = col_fun,
+  cluster_rows = TRUE,
+  #row_km = ifelse(cluster,k,1),
+  heatmap_legend_param=list(title="z-score"),
+  row_names_gp = gpar(fontsize = 15, color = "white", lwd = 2),
+  cluster_columns = FALSE,
+  column_order = NULL,
+  show_row_dend = TRUE,
+  show_column_dend = FALSE,
+  show_row_names = TRUE,
+  show_column_names = FALSE,
+  column_names_rot = 45,
+  bottom_annotation = NULL,
+  top_annotation = ha,
+  use_raster = FALSE,
+  heatmap_width = unit(25, "cm"), 
+  heatmap_height = unit(25, "cm")
+  #raster_by_magick = TRUE,
+  #raster_quality = 5,
+  #raster_resize_mat = TRUE
+)
+dev.off()
 
 

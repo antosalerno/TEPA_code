@@ -43,22 +43,33 @@ pkcs <- annotation(data)
 modules <- gsub(".pkc", "", pkcs)
 kable(data.frame(PKCs = pkcs, modules = modules))
 
-count_mat <- dplyr::count(pData(protocolData(data)), Tissue,  Group, Infiltration) %>%
-  mutate(Tissue = as.character(Tissue)) %>%
-  mutate(Group = as.character(Group)) %>% 
+rep_str = c('T'='Infiltrated TME','F'='Non-Infiltrated TME')
+pData(protocolData(data))$Infiltration <- str_replace_all(pData(protocolData(data))$Infiltration, rep_str)
+
+count_mat <- dplyr::count(pData(protocolData(data)), Core, Condition, Infiltration) %>%
+  mutate(Tissue = as.character(Core)) %>%
+  mutate(Group = as.character(Condition)) %>% 
   mutate(Infiltration = as.character(Infiltration))
 
 # gather the data and plot in order: 
 test_gr <- gather_set_data(count_mat, 1:3)
 test_gr$x <- factor(test_gr$x)
-levels(test_gr$x) = c("Tissue","Group", "Infiltration")
+levels(test_gr$x) = c("Core","Condition","Infiltration")
 
+count_mat %>%
+  group_by(Condition, Infiltration) %>%
+  mutate(cond_inf = sum(n)) 
+
+# tot needs to be 100 ROIs -> why C is missing?
+# Percentage of infiltration: C = 29%, T = 83%
+
+      
 # plot Sankey
 save = "N00_sankey"
 p <- ggplot(test_gr, aes(x, id = id, split = y, value = n)) +
   geom_parallel_sets(aes(fill = Infiltration), alpha = 0.5, axis.width = 0.1) +
   geom_parallel_sets_axes(axis.width = 0.2) +
-  geom_parallel_sets_labels(color = "#E3B9B1", size = 5) +
+  geom_parallel_sets_labels(color = "white", size = 5) +
   theme_classic(base_size = 17) + 
   theme(legend.position = "bottom",
         axis.ticks.y = element_blank(),
@@ -71,7 +82,7 @@ p <- ggplot(test_gr, aes(x, id = id, split = y, value = n)) +
            y = 0, yend = 105, lwd = 2) +
   annotate(geom = "text", x = 3.19, y = 63, angle = 90, size = 5,
            hjust = 0.5, label = "100 ROIs")
-ggsave(p, file=paste0("TEPA_plots/", save, ".png"), width = 30, height = 30, units = "cm")
+ggsave(p, file=paste0("TEPA_final_figures/", save, ".pdf"), width = 30, height = 30, units = "cm")
 
   
 #### 3 - QC and preprocessing ####

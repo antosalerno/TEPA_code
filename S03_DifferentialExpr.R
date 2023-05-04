@@ -8,10 +8,8 @@ library(openxlsx)
 library('limma')
 library(dplyr)
 library("MAST")
-# if (!require("RColorBrewer")) {
-#   install.packages("RColorBrewer")
-#   library(RColorBrewer)
-# }
+library(RColorBrewer)
+
 
 setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
 source("TEPA_code/supportFunctions.R")
@@ -20,7 +18,7 @@ seuset_immune <- LoadH5Seurat("TEPA_results/S02_immuneAnn.h5Seurat")
 #### 1 - Inter-cluster DEA: get marker genes ####
 
 DefaultAssay(seuset_immune) <- "RNA"
-Idents(seuset_immune) <- "scType"
+Idents(seuset_immune) <- "celltypes"
 clusters = levels(Idents(seuset_immune))
 
 # A - Find markers for every cluster compared to all remaining cells
@@ -49,24 +47,28 @@ saveWorkbook(wb, file="TEPA_results/S03_DEA_clusterMarkers.xlsx", overwrite = TR
 
 seuset_immune <- createSets()
 
-png("TEPA_plots/S03_immuneClustersAnnot.png", h = 3000, w = 4500, res = 200)
-patchwork::wrap_plots(FeaturePlot(seuset_immune, ncol = 4, combine = TRUE,
-                                  features = as.character(clusters), label = TRUE, repel = TRUE)) & theme_minimal() &
+Idents(seuset_immune) <- "celltypes"
+#png("TEPA_plots/S03_immuneClustersAnnot.png", h = 3000, w = 4500, res = 200)
+pdf(qq("TEPA_final_figures/S03_immuneClustersAnnot.pdf"), h = 10, w = 14)
+patchwork::wrap_plots(FeaturePlot(seuset_immune, ncol = 5, combine = TRUE,
+                                  features = as.character(clusters), label = FALSE, repel = TRUE)) &
+  theme_minimal() &
   scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
-dev.off()
+dev.off() 
 
 # C - Identify most important markers per cluster ###
 
 markers <- getTopMarkers(immune.markers, 5)
 
 png("TEPA_plots/S03_immuneDotPlot.png", h = 2000, w = 2500, res = 300)
+#pdf(qq("TEPA_final_figures/S03_immuneDotPlot.pdf"), h = 4, w = 11)
 DotPlot(object = seuset_immune, features = unique(markers), # split.by = "condition",
         scale=TRUE, col.min = -4, col.max = 4, 
-        dot.min = 0, dot.scale = 5, cols = c("blue","red")) + RotatedAxis() + coord_flip() +
-  theme(axis.text.x = element_text(size=7), axis.text.y = element_text(size=7))
+        dot.min = 0, dot.scale = 4, cols = c("blue","red")) + RotatedAxis() + #scale_x_reverse() +
+  theme(axis.text.x = element_text(size=7), axis.text.y = element_text(size=8))
 dev.off()
 
-png("TEPA_plots/S03_immuneMarkersHeatmap.png", h = 4000, w = 6000, res = 300)
+png("TEPA_plots/S03_immuneMarkersHeatmap.png", h = 5000, w = 6000, res = 300)
 top10 <- immune.markers %>% group_by(cluster) %>% top_n(n = 5, wt = avg_log2FC)
 DoHeatmap(object = subset(seuset_immune, downsample = 500), size = 6, 
           assay = "integrated", features = top10$gene) +
@@ -77,25 +79,25 @@ dev.off()
 
 # D - Plot Volcano of each cluster vs all the others: 
 save = "S03_immuneMarkers"
-plotVolcano(clusters, res = immune.markers, type = "markers", df = "I",
+plotVolcano(clusters, res = immune.markers, type = "markers", immune = TRUE,
             log2FC = 0.5, save = save)
 
 #### 2 - Intra-cluster DEA with annotated dataset - Treatment vs Control ####
 
-seuset_immune$celltype.tepa <- paste(Idents(seuset_immune), seuset_immune$condition, sep = "_")
-seuset_immune$celltype <- Idents(seuset_immune)
-Idents(seuset_immune) <- "celltype.tepa"
+seuset_immune$celltypes.tepa <- paste(Idents(seuset_immune), seuset_immune$condition, sep = "_")
+seuset_immune$celltypes <- Idents(seuset_immune)
+Idents(seuset_immune) <- "celltypes.tepa"
 DefaultAssay(seuset_immune) <- "RNA"
 
 save = "S03_immuneCond_"
 sheets <- list()
-for (cluster in unique(seuset_immune$celltype)){
+for (cluster in unique(seuset_immune$celltypes)){
   try({
     ident1 <- paste0(cluster,"_Treatment")
     ident2 <- paste0(cluster,"_Control")
     condition.diffgenes <- FindMarkers(seuset_immune, 
                                        ident.1 = ident1, ident.2 = ident2,
-                                       #logfc.threshold = 0.25, 
+                                       #logfc.threshold = 0.2, 
                                        only.pos = FALSE, verbose = FALSE,
                                        latent.vars="orig.ident",
                                        #min.cells.feature = 1, min.cells.group = 1, 
@@ -104,7 +106,7 @@ for (cluster in unique(seuset_immune$celltype)){
     sheets[[cluster]] <- as.data.frame(condition.diffgenes)
     
     # Needed for plotting
-    write.csv(condition.diffgenes, file=paste0("TEPA_results/", save, "DEA_", sub(" ", "_", cluster),".csv"))
+    write.csv(condition.diffgenes, file=paste0("TEPA_results/", save, "DEA_", gsub(" |/", "_", cluster),".csv"))
   })
 }
 
@@ -113,7 +115,7 @@ openxlsx::write.xlsx(sheets, file = paste0("TEPA_results/", save, "DEA.xlsx"), r
 
 # Plot Volcano DEA by condition
 
-Idents(seuset_immune) <- "scType"
+Idents(seuset_immune) <- "celltypes"
 clusters = unique(Idents(seuset_immune))
 
 plotVolcano(clusters, log2FC = 0.25, pval = 0.05, save = save)

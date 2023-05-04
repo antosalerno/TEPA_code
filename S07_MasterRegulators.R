@@ -75,8 +75,10 @@ assayTumorTEPA <- as.matrix(subset(seuset_tumor, condition == "Treatment")@assay
 assayTumorCTRL <- as.matrix(subset(seuset_tumor, condition == "Control")@assays$integrated@scale.data)
 
 # Predict Master regulators from gene co-expression network
-predicted<-mra(assayTumorTEPA,assayTumorCTRL,regulon)
-save(predicted, file = "TEPA_results/S07_predictedTumor_MRA.rda")
+load("TEPA_results/S07_predictedTumor_MRA.rda")
+
+#predicted<-mra(assayTumorTEPA,assayTumorCTRL,regulon)
+#save(predicted, file = "TEPA_results/S07_predictedTumor_MRA.rda")
 
 png("TEPA_plots/S07_tumor_MRA.png", h = 8000, w = 3000, res = 200)
 mraplot(predicted, mrs = 18, pthr = 0.05, title = "Master TFs enriched in TEPA-treated Tumor")
