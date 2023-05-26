@@ -254,7 +254,7 @@ gseaRES <- function(clusters, markers = NULL, fgsea_sets, minSize = 12, adj = TR
       # Run GSEA
       fgseaRes<- fgsea(fgsea_sets, stats = ranked.genes, minSize = minSize, maxSize = Inf)
       if (adj) {fgseaRes$padj = p.adjust(fgseaRes$pval, method='BH')}
-      fgseaRes <- fgseaRes[fgseaRes$padj <= 0.3] %>% arrange(desc(NES))
+      fgseaRes <- fgseaRes[fgseaRes$padj <= 0.1] %>% arrange(desc(NES))
       fgseaRes <- as.data.frame(fgseaRes)
       
       # enr <- plotEnrichment(fgsea_sets[["N1 ANTI-TUMOR NEUTROPHILS"]],

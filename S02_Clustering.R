@@ -120,10 +120,11 @@ for(j in unique(celltypes_scores$cluster)){
 
 Idents(seuset_immune) <- seuset_immune@meta.data$celltypes
 
+
 # We decide to remove the cluster HLA-expressing cells since it is probably ambient RNA -> mixture of B cells and macrophage markers
-seuset_immune <- seuset_immune[,!seuset_immune$celltypes == "HLA-expressing cells"]
+seuset_immune <- seuset_immune[,!seuset_immune$celltypes == "HLA-expressing cells"] # 12 cells
 # We are not sure how to define these progenitors
-seuset_immune <- seuset_immune[,!seuset_immune$celltypes == "Progenitor cells"]
+seuset_immune <- seuset_immune[,!seuset_immune$celltypes == "Progenitor cells"] # 45 cells
 
 levels(Idents(seuset_immune)) # now 14 clusters rather than 15
 
