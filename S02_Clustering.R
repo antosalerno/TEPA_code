@@ -176,12 +176,13 @@ ggplot(pt, aes(x = Var2, y = Freq, fill = factor(Var1))) +
 dev.off()
 
 ###  Bar Plot with percentage
+
 pt <- table(Idents(seuset_immune), seuset_immune$condition)
 data_percentage<- apply(pt, 2, function(x){as.numeric(x)*100/sum(x,na.rm=T)})
 
 # Make a stacked barplot--> it will be in %!
-#png(paste0("TEPA_plots/S02_condAnnClusterPerc.png"), w=2500,h=2500, res=300)
-pdf(paste0("TEPA_final_figures/S02_condAnnClusterPerc.pdf"), w=2500,h=2500)
+png(paste0("TEPA_plots/S02_condAnnClusterPercLympho.png"), w=2500,h=2500, res=300)
+#pdf(paste0("TEPA_final_figures/S02_condAnnClusterPerc.pdf"), w=2500,h=2500)
 par(mar = c(5.1, 5.1, 4.1, 12))
 barplot(data_percentage, col=cellt_col, border="white", 
         ylab="Percentage of cells per cell type",
@@ -190,6 +191,80 @@ barplot(data_percentage, col=cellt_col, border="white",
         args.legend = list(x = "topright",inset = c(-0.45, 0)))
 dev.off()
 
+# Plot only lymphocytes
+lympho <- levels(seuset_immune$celltypes)[1:8]
+seuset_lympho <- seuset_immune[,seuset_immune$celltypes == lympho]
+seuset_immune <- seuset_lympho
+
+pt <- table(Idents(seuset_immune), seuset_immune$condition)
+data_percentage<- apply(pt, 2, function(x){as.numeric(x)*100/sum(x,na.rm=T)})
+
+
+png(paste0("TEPA_plots/S02_condAnnClusterPercLympho.png"), w=2500,h=2500, res=290)
+#pdf(paste0("TEPA_final_figures/S02_condAnnClusterPerc.pdf"), w=2500,h=2500)
+par(mar = c(5.1, 5.1, 4.1, 12))
+barplot(data_percentage, col=cellt_col, border="white", 
+        ylab="Percentage of cells per cell type",
+        main = "Cell types in TEPA vs Control",
+        legend = rownames(pt),
+        args.legend = list(x = "topright",inset = c(-0.45, 0)))
+dev.off()
+
+pt <- table(Idents(seuset_immune), seuset_immune$condition)
+pt <- as.data.frame(pt)
+pt$Var1 <- as.character(pt$Var1)
+
+pt$Var1 <- factor(pt$Var1,levels=levels(seuset_immune$celltypes)) # Look the difference in the factors order
+
+png(paste0("TEPA_plots/S02_condAnnClusterFreqLympho.png"), w=2500,h=2500, res=300)
+#pdf(qq("TEPA_final_figures/S02_condAnnClusterFreq.pdf"), w = 6, h = 8)
+ggplot(pt, aes(x = Var2, y = Freq, fill = factor(Var1))) +
+  theme_bw(base_size = 15) +
+  geom_col(position = "fill", width = 0.5) +
+  geom_bar(stat = "identity")+
+  xlab("Condition") +
+  ylab("Cell type") +
+  #ggtitle("Cell types in TEPA vs Control") +
+  scale_fill_manual(values = cellt_col) +
+  theme(legend.title = element_blank()) & NoLegend()
+dev.off()
+
+# Plot only myeloids
+myelo <- levels(seuset_immune$celltypes)[9:13]
+seuset_myelo <- seuset_immune[,seuset_immune$celltypes == myelo]
+seuset_immune <- seuset_myelo
+
+pt <- table(Idents(seuset_immune), seuset_immune$condition)
+data_percentage<- apply(pt, 2, function(x){as.numeric(x)*100/sum(x,na.rm=T)})
+
+png(paste0("TEPA_plots/S02_condAnnClusterPercMyelo.png"), w=2500,h=2500, res=290)
+#pdf(paste0("TEPA_final_figures/S02_condAnnClusterPerc.pdf"), w=2500,h=2500)
+par(mar = c(5.1, 5.1, 4.1, 12))
+barplot(data_percentage, col=cellt_col[9:13], border="white", 
+        ylab="Percentage of cells per cell type",
+        main = "Cell types in TEPA vs Control",
+        legend = rownames(pt),
+        args.legend = list(x = "topright",inset = c(-0.45, 0)))
+dev.off()
+
+pt <- table(Idents(seuset_immune), seuset_immune$condition)
+pt <- as.data.frame(pt)
+pt$Var1 <- as.character(pt$Var1)
+
+pt$Var1 <- factor(pt$Var1,levels=levels(seuset_immune$celltypes)) # Look the difference in the factors order
+
+png(paste0("TEPA_plots/S02_condAnnClusterFreqMyelo.png"), w=2500,h=2500, res=300)
+#pdf(qq("TEPA_final_figures/S02_condAnnClusterFreq.pdf"), w = 6, h = 8)
+ggplot(pt, aes(x = Var2, y = Freq, fill = factor(Var1))) +
+  theme_bw(base_size = 15) +
+  geom_col(position = "fill", width = 0.5) +
+  geom_bar(stat = "identity")+
+  xlab("Condition") +
+  ylab("Cell type") +
+  #ggtitle("Cell types in TEPA vs Control") +
+  scale_fill_manual(values = cellt_col[9:13]) +
+  theme(legend.title = element_blank()) & NoLegend()
+dev.off()
 
 
 SaveH5Seurat(seuset_immune, filename = "TEPA_results/S02_immuneAnn.h5Seurat", overwrite = TRUE)

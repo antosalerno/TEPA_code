@@ -161,3 +161,26 @@ sign_avgHeatMap(seuset_full, cytokines, immune = FALSE,
                 cluster = TRUE, k = 3, legend = TRUE) #check why it doesn't work
 dev.off()
 
+#### Check Control T-cells ####
+
+grep(pattern = "Th1", 
+     x = rownames(x = seuset_immune@assays$RNA@data), 
+     value = TRUE, ignore.case = TRUE)
+
+
+CD8_exh <- c("Pdcd1", "Havcr2", "Lag3", "Ctla4", "Cd244a", "Cd160")
+#PD-1, TIM-3, LAG3, CTLA-4, 2B4, Cd244, TIGIT
+CD4_reg <- c("Foxp3", "Il2ra", "Il10")
+# FOXP3, CD25, Il10
+immune_sup_cancer <- c("Ido1", "Cd274") #Pdl1
+
+supp <- c(CD8_exh, CD4_reg)
+save = "S06_complexHeat_Exh"
+png(paste0("TEPA_plots/",save,".png"), h = 5000, w = 6000, res = 400)
+sign_avgHeatMap(seuset_full, CD8_exh, immune = FALSE,
+                cluster = TRUE, k = 3, legend = TRUE) #check why it doesn't work
+dev.off()
+
+# vedi tumore ido1 and pdl1
+# 
+

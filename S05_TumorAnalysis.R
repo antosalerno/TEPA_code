@@ -378,7 +378,7 @@ Idents(seuset_tumor) <- "condition"
 VlnPlot(seuset_tumor, features =  "Mycn", cols = cond_col,
         ncol = 1, pt.size = 0) + 
   ylim(0,6) +
-  geom_signif(xmin = 1, xmax = 2, y_position = 5.25, annotations="***") +
+  #geom_signif(xmin = 1, xmax = 2, y_position = 5.25, annotations="***") +
   geom_boxplot(width=.1, outlier.size = 0.5)
 dev.off()
 
@@ -447,8 +447,6 @@ Idents(seuset_tumor) <- "condition"
 png("TEPA_plots/S05_tumorAdreMese_ScatterPlot.png", h = 3000, w = 4200, res = 300)
 FeatureScatter(seuset_tumor, feature1 = "Adrenergic", feature2 = "Mesenchymal", pt.size = 0.0005)
 dev.off()
-
-
 
 
 

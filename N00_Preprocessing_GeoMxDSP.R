@@ -116,7 +116,7 @@ QC_Summary["TOTAL FLAGS", ] <-
   c(sum(QCResults[, "QCStatus"] == "PASS"),
     sum(QCResults[, "QCStatus"] == "WARNING"))
 
-col_by <- "Group"
+col_by <- "Regions"
 
 # Graphical summaries of QC statistics plot function
 QC_histogram <- function(assay_data = NULL,
