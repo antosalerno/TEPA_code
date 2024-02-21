@@ -497,7 +497,11 @@ sign_avgHeatMap <- function(obj, sign, immune = TRUE,
     assays = "RNA",
     features = sign,
     group.by = c("celltypes", "condition"),
-    slot = "scale.data")$RNA
+    layer = "scale.data")$RNA
+  
+  my_data_matrix = as.matrix(my_data)
+  rownames(my_data_matrix) = rownames(my_data)
+  colnames(my_data_matrix) = colnames(my_data)
   
   # order of annotations/colors are defined here
   ordered_meta_data <- str_split_fixed(colnames(my_data), '_', 2)
@@ -528,7 +532,7 @@ sign_avgHeatMap <- function(obj, sign, immune = TRUE,
   col_fun = colorRamp2(c(-2, 0, 2), c("blue", "white", "red"))
   
   Heatmap(
-    my_data,
+    my_data_matrix,
     col = col_fun,
     cluster_rows = cluster,
     row_km = ifelse(cluster,k,1),

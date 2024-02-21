@@ -172,7 +172,7 @@ CD8_exh <- c("Pdcd1", "Havcr2", "Lag3", "Ctla4", "Cd244a", "Cd160")
 #PD-1, TIM-3, LAG3, CTLA-4, 2B4, Cd244, TIGIT
 CD4_reg <- c("Foxp3", "Il2ra", "Il10")
 # FOXP3, CD25, Il10
-immune_sup_cancer <- c("Ido1", "Cd274") #Pdl1
+
 
 supp <- c(CD8_exh, CD4_reg)
 save = "S06_complexHeat_Exh"
@@ -181,6 +181,14 @@ sign_avgHeatMap(seuset_full, CD8_exh, immune = FALSE,
                 cluster = TRUE, k = 3, legend = TRUE) #check why it doesn't work
 dev.off()
 
-# vedi tumore ido1 and pdl1
-# 
+immune_sup_cancer <- c("Ido1", "Cd274") #Pdl1
+
+
+png("TEPA_plots/S06_Ido1_VlnPlot.png", h = 2000, w = 3500, res = 200)
+Idents(seuset_full) <- "class"
+VlnPlot(seuset_full, features = immune_sup_cancer, split.by = "condition",
+        ncol = 2, pt.size = 0.000005)
+dev.off()
+
+
 
