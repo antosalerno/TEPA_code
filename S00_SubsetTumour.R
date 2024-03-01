@@ -11,7 +11,7 @@ library(RColorBrewer)
 #library("ggsignif")
 library(patchwork)
 
-setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
+setwd("~/Library/CloudStorage/OneDrive-UNSW/TEPA_project")
 source("TEPA_code/supportFunctions.R")
 
 #### 1 - Create Seurat object with all the samples ####
