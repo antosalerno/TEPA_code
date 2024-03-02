@@ -7,7 +7,6 @@ library(dplyr)
 library(devtools)
 library(msigdbr)
 library("Seurat")
-library("SeuratDisk")
 library(readr)
 library(stringr)
 library("org.Mm.eg.db", character.only = TRUE)
@@ -15,7 +14,6 @@ library(clusterProfiler)
 library(ggplot2)
 library(ggcharts)
 library("EnhancedVolcano")
-library(clusterProfiler)
 library(GetoptLong)
 library(magick)
 #library(pheatmap)
@@ -185,5 +183,5 @@ ggsave(b, file=paste0("TEPA_plots/S04_barplotCellTypesEnrichedCustom.png"),
 save = "S04_immuneEnrichmentBulkCustom_"
 gseaRES("", fgsea_sets = custom, save = save, minSize = 7) # make it better
 
-SaveSeuratRds(seuset_immune, filename = "TEPA_results/S04_immuneDiff.Rds", overwrite = TRUE)
+SaveSeuratRds(seuset_immune, "TEPA_results/S04_immuneDiff.Rds")
 

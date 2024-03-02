@@ -124,7 +124,7 @@ DimPlot(seuset_tumor, pt.size = 0.5, reduction = 'umap', ncol = 1, cols = cond_c
   theme(plot.title = element_text(hjust = 0.5)) 
 dev.off()
 
-SaveSeuratRds(seuset_tumor, filename = "TEPA_results/S05_seusetTumorClu.Rds", overwrite = TRUE)
+SaveSeuratRds(seuset_tumor, "TEPA_results/S05_seusetTumorClu.Rds")
 
 #### 3 - Clustering annotation ####
 

@@ -3,7 +3,6 @@
 ## date: 02/01/2024
 
 library("Seurat")
-library("SeuratDisk")
 library("ggplot2")
 library(RColorBrewer)
 library(magick)
@@ -17,9 +16,9 @@ library(patchwork)
 options(stringsAsFactors = FALSE)
 # reticulate::use_python("/Users/suoqinjin/anaconda3/bin/python", required=T) 
 
-setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
+setwd("~/Library/CloudStorage/OneDrive-UNSW/TEPA_project")
 source("TEPA_code/supportFunctions.R")
-seuset_full <- LoadH5Seurat("TEPA_results/S08_seusetFull.h5Seurat")
+seuset_full <- LoadSeuratRds("TEPA_results/S08_seusetFull.Rds")
 
 # 1. DATA PREPARATION ####
 seuset_tepa <- seuset_full[,seuset_full$condition == "Treatment"]
