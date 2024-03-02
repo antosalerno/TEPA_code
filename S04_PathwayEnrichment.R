@@ -20,9 +20,9 @@ library(GetoptLong)
 library(magick)
 #library(pheatmap)
 
-setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
+setwd("~/Library/CloudStorage/OneDrive-UNSW/TEPA_project")
 source("TEPA_code/supportFunctions.R")
-seuset_immune <- LoadH5Seurat("TEPA_results/S03_immuneDiff.h5Seurat")
+seuset_immune <- LoadSeuratRds("TEPA_results/S03_immuneDiff.Rds")
 clusters = unique(seuset_immune@meta.data$celltypes)
 immune.markers <- read.csv("TEPA_results/S03_DEA_clusterMarkers.csv")
 
@@ -185,5 +185,5 @@ ggsave(b, file=paste0("TEPA_plots/S04_barplotCellTypesEnrichedCustom.png"),
 save = "S04_immuneEnrichmentBulkCustom_"
 gseaRES("", fgsea_sets = custom, save = save, minSize = 7) # make it better
 
-SaveH5Seurat(seuset_immune, filename = "TEPA_results/S04_immuneDiff.h5Seurat", overwrite = TRUE)
+SaveSeuratRds(seuset_immune, filename = "TEPA_results/S04_immuneDiff.Rds", overwrite = TRUE)
 

@@ -3,20 +3,15 @@
 ## date: 20/12/2022
 
 library("Seurat")
-library("SeuratDisk")
 library("ggplot2")
-if (!require("RColorBrewer")) {
-  install.packages("RColorBrewer")
-  library(RColorBrewer)
-}
+library(RColorBrewer)
 library("Nebulosa")
-library("ggsignif")
 library("ggpubr")
 
-setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
+setwd("~/Library/CloudStorage/OneDrive-UNSW/TEPA_project")
 source("TEPA_code/supportFunctions.R")
-seuset_immune <- LoadH5Seurat("TEPA_results/S03_immuneDiff.h5Seurat")
-seuset_full<- LoadH5Seurat("TEPA_results/S08_seusetFull.h5Seurat")
+seuset_immune <- LoadSeuratRds("TEPA_results/S03_immuneDiff.Rds")
+seuset_full<- LoadSeuratRds("TEPA_results/S08_seusetFull.Rds")
 immune.markers <- read.csv("TEPA_results/02_DEA_clusterMarkers.csv")
 
 DefaultAssay(seuset_immune) <- "RNA"

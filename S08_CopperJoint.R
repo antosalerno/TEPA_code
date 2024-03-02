@@ -3,17 +3,16 @@
 ## date: 13/04/2023
 
 library("Seurat")
-library("SeuratDisk")
 library("ggplot2")
 library(RColorBrewer)
 library(magick)
 library(GetoptLong)
 
 
-setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
+setwd("~/Library/CloudStorage/OneDrive-UNSW/TEPA_project")
 source("TEPA_code/supportFunctions.R")
-seuset_immune <- LoadH5Seurat("TEPA_results/S04_immuneDiff.h5Seurat")
-seuset_tumor <- LoadH5Seurat("TEPA_results/S05_seusetTumorClu.h5Seurat")
+seuset_immune <- LoadSeuratRds("TEPA_results/S04_immuneDiff.Rds")
+seuset_tumor <- LoadSeuratRds("TEPA_results/S05_seusetTumorClu.Rds")
 
 seuset_full <- merge(seuset_immune, y = seuset_tumor, 
                      add.cell.ids = c("immune", "tumor"), 
@@ -35,7 +34,7 @@ seuset_full@meta.data$celltypes <- factor(seuset_full@meta.data$celltypes,
                                                      "Basophils", "Eosinophils", "Neutrophils", "Tumor"  
                                             ))
 
-SaveH5Seurat(seuset_full, filename = "TEPA_results/S08_seusetFull.h5Seurat", overwrite = TRUE)
+SaveSeuratRds(seuset_full, "TEPA_results/S08_seusetFull.Rds")
 
 # move this to S05 or S06
 
@@ -54,7 +53,7 @@ grep(pattern = "Sod1",
 
 #### Check differentially expressed genes in different cell types ####
 
-seuset_full <- LoadH5Seurat("TEPA_results/S08_seusetFull.h5Seurat")
+seuset_full <- LoadSeuratRds("TEPA_results/S08_seusetFull.Rds")
 
 clusters = levels(seuset_immune$celltypes)
 df <- data.frame()

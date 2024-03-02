@@ -11,15 +11,16 @@ library("MAST")
 library(RColorBrewer)
 
 
-setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
+setwd("~/Library/CloudStorage/OneDrive-UNSW/TEPA_project")
 source("TEPA_code/supportFunctions.R")
-seuset_immune <- LoadH5Seurat("TEPA_results/S02_immuneAnn.h5Seurat")
+seuset_immune <- LoadSeuratRds("TEPA_results/S02_immuneAnn.Rds")
 
 #### 1 - Inter-cluster DEA: get marker genes ####
 
 DefaultAssay(seuset_immune) <- "RNA"
 Idents(seuset_immune) <- "celltypes"
 clusters = levels(Idents(seuset_immune))
+seuset_immune <- JoinLayers(seuset_immune)
 
 # A - Find markers for every cluster compared to all remaining cells
 immune.markers <- FindAllMarkers(seuset_immune, 
@@ -48,8 +49,8 @@ saveWorkbook(wb, file="TEPA_results/S03_DEA_clusterMarkers.xlsx", overwrite = TR
 seuset_immune <- createSets()
 
 Idents(seuset_immune) <- "celltypes"
-#png("TEPA_plots/S03_immuneClustersAnnot.png", h = 3000, w = 4500, res = 200)
-pdf(qq("TEPA_final_figures/S03_immuneClustersAnnot.pdf"), h = 10, w = 14)
+png("TEPA_plots/S03_immuneClustersAnnot.png", h = 3000, w = 4500, res = 200)
+#pdf(qq("TEPA_final_figures/S03_immuneClustersAnnot.pdf"), h = 10, w = 14)
 patchwork::wrap_plots(FeaturePlot(seuset_immune, ncol = 5, combine = TRUE,
                                   features = as.character(clusters), label = FALSE, repel = TRUE)) &
   theme_minimal() &
@@ -154,7 +155,7 @@ p <- EnhancedVolcano(res, subtitle = "",
                                       "\n",'Downregulated = ', nrow(res[res$avg_log2FC< -log2FC&res$p_val_adj<=0.05,]), ' genes'))+ theme(plot.title = element_text(hjust = 0.5)) + coord_flip()
 ggsave(p, file=paste0("TEPA_plots/", save, "DEA.png"), width = 30, height = 25, units = "cm")
 
-SaveH5Seurat(seuset_immune, filename = "TEPA_results/S03_immuneDiff.h5Seurat", overwrite = TRUE)
+SaveSeuratRds(seuset_immune,"TEPA_results/S03_immuneDiff.Rds")
 
 
 

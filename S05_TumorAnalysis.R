@@ -3,7 +3,6 @@
 ## date: 07/02/2023
 
 library("Seurat")
-library("SeuratDisk")
 library("MAST")
 library("writexl")
 library(openxlsx)
@@ -20,9 +19,9 @@ library(ggplot2)
 library(ggcharts)
 
 
-setwd("~/OneDrive - Childrens Cancer Institute Australia/OrazioLab")
+setwd("~/Library/CloudStorage/OneDrive-UNSW/TEPA_project")
 source("TEPA_code/supportFunctions.R")
-tumor <- LoadH5Seurat("TEPA_results/S00_tumor.h5Seurat") #13560 cells and 21388 genes
+tumor <- LoadSeuratRds("TEPA_results/S00_tumor.Rds") #13560 cells and 21388 genes
 
 #### 1 - QC and filtering of tumor cells ####
 
@@ -125,7 +124,7 @@ DimPlot(seuset_tumor, pt.size = 0.5, reduction = 'umap', ncol = 1, cols = cond_c
   theme(plot.title = element_text(hjust = 0.5)) 
 dev.off()
 
-SaveH5Seurat(seuset_tumor, filename = "TEPA_results/S05_seusetTumorClu.h5Seurat", overwrite = TRUE)
+SaveSeuratRds(seuset_tumor, filename = "TEPA_results/S05_seusetTumorClu.Rds", overwrite = TRUE)
 
 #### 3 - Clustering annotation ####
 
@@ -392,7 +391,7 @@ dev.off()
 
 
 #### 6 - Investigate whether the tumor is adrenergic or mesenchymal ####
-seuset_tumor <- LoadH5Seurat("TEPA_results/S05_seusetTumorClu.h5Seurat")
+seuset_tumor <- LoadSeuratRds("TEPA_results/S05_seusetTumorClu.Rds")
 
 MES <- c("Elk4", "Creg1", "Dcaf6", "Id1", "Smad3", "Six4", "Six1", "Maml2", "Notch2",
           "Cbfb", "Ifi203","Ifi204", "Ifi205", "Ifi206", "Ifi207", "Ifi208", "Ifi209",
