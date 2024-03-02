@@ -2,13 +2,18 @@
 ## author: Antonietta Salerno
 ## date: 21/12/2022
 
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+BiocManager::install(version = "3.16")
+if (!requireNamespace("remotes", quietly = TRUE)) {
+  install.packages("remotes")
+}
+
 library("Seurat")
 library("SeuratObject")
 library("ggplot2")
 library(dplyr)
-library(SeuratDisk)
 library(RColorBrewer)
-#library("ggsignif")
 library(patchwork)
 
 setwd("~/Library/CloudStorage/OneDrive-UNSW/TEPA_project")
@@ -39,23 +44,22 @@ combined <- merge(
 )
 
 seuset <- combined
+seuset<-JoinLayers(seuset)
 seuset$condition <- ifelse(test = seuset$orig.ident %in% c("CF", "CM"), yes = "Control", no = "Treatment")
 seuset$sampleType <- ifelse(test = seuset$orig.ident %in% c("TM", "CM"), yes = "Myeloid", no = "Full")
 
 # table(seuset$orig.ident)
-
-SaveH5Seurat(seuset, filename = "TEPA_results/S00_rawcounts.h5Seurat", overwrite = TRUE)
+SaveSeuratRds(seuset, "TEPA_results/S00_rawcounts.Rds")
 
 #### 2 - Data pre-processing ####
-
-seuset <- LoadH5Seurat("TEPA_results/S00_rawcounts.h5Seurat")
+seuset <- LoadSeuratRds("TEPA_results/S00_rawcounts.Rds")
 
 png("TEPA_plots/S00_preFilterQC_violin.png", h = 3000, w = 4200, res = 300)
 VlnPlot(seuset, features = c("nFeature_RNA", "nCount_RNA", "Mycn"), ncol = 3, pt.size = 0.000005)
 dev.off()
 
 png("TEPA_plots/S00_preFilterQC_Mycn_Cd45.png", h = 3000, w = 4200, res = 300)
-FeatureScatter(seuset, feature1 = "Mycn", feature2 = "Ptprc", pt.size = 0.0005)
+FeatureScatter(seuset, feature1 = "Mycn", feature2 = "Ptprc", pt.size = 0.0005, slot="counts")
 dev.off()
 
 # Log-normalisation
@@ -80,8 +84,8 @@ head(cum, n=40) # Select 40 PCs to retain 62.76% of variability
 seuset <- FindNeighbors(object = seuset, dims = 1:40, reduction = 'pca')
 seuset <- RunUMAP(seuset, dims = 1:40, reduction = "pca", verbose = FALSE)
 
-#png("TEPA_plots/S00_umapExplore.png", w = 4000, h = 2000, res = 300)
-pdf("TEPA_final_figures/S00_umapExplore.pdf", w = 12, h = 6)
+png("TEPA_plots/S00_umapExplore.png", w = 4000, h = 2000, res = 300)
+#pdf("TEPA_final_figures/S00_umapExplore.pdf", w = 12, h = 6)
 cbpal <- colorRampPalette(RColorBrewer::brewer.pal(4,"Paired"))(4)
 DimPlot(object = seuset, pt.size = 0.05, reduction = 'umap', ncol = 2,
         group.by = c("orig.ident", "condition"), label = FALSE, cols = cbpal) +
@@ -89,23 +93,23 @@ DimPlot(object = seuset, pt.size = 0.05, reduction = 'umap', ncol = 2,
   theme(plot.title = element_text(hjust = 0.5)) 
 dev.off()
 
-#png("TEPA_plots/S00_umapCounts.png", w = 4000, h = 2000, res = 300)
-pdf("TEPA_final_figures/S00_umapCounts.pdf", w = 12, h = 6)
+png("TEPA_plots/S00_umapCounts.png", w = 4000, h = 2000, res = 300)
+#pdf("TEPA_final_figures/S00_umapCounts.pdf", w = 12, h = 6)
 FeaturePlot(seuset, features = c("nCount_RNA", "nFeature_RNA"), min.cutoff = "q10", max.cutoff = "q90")
 dev.off()
 
-#png("TEPA_plots/S00_umapMycnPtprc.png", h = 2000, w = 4000, res = 300)
-pdf("TEPA_final_figures/S00_umapMycnPtprc.pdf", w = 12, h = 6)
+png("TEPA_plots/S00_umapMycnPtprc.png", h = 2000, w = 4000, res = 300)
+#pdf("TEPA_final_figures/S00_umapMycnPtprc.pdf", w = 12, h = 6)
 FeaturePlot(seuset, ncol = 2, pt.size = 0.0005,
             features = c("Mycn", "Ptprc"), label = TRUE, repel = TRUE) &
   scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
 dev.off()
 
-SaveH5Seurat(seuset, filename = "TEPA_results/S00_seusetRed.h5Seurat", overwrite = TRUE)
+SaveSeuratRds(seuset, "TEPA_results/S00_seusetRed.Rds")
 
 #### 4 - Identify tumor cells ####
 
-seuset <- LoadH5Seurat("TEPA_results/S00_seusetRed.h5Seurat")
+#seuset <- LoadSeuratRds("TEPA_results/S00_seusetRed.Rds")
 
 table(seuset$orig.ident) # pre-subsetting: CF: 9100  CM: 7377  TF: 9412 TM: 11174 
 
@@ -135,8 +139,8 @@ pt <- table(Idents(seuset), seuset$class)
 pt <- as.data.frame(pt)
 pt$Var1 <- as.character(pt$Var1)
 
-#png("TEPA_plots/S00_classMemberMycnPtprc.png", w=2500,h=2500, res=300)
-pdf("TEPA_final_figures/S00_classMemberIdent.pdf", w = 6, h = 6)
+png("TEPA_plots/S00_classMemberMycnPtprc.png", w=2500,h=2500, res=300)
+#pdf("TEPA_final_figures/S00_classMemberIdent.pdf", w = 6, h = 6)
 cbpal <- colorRampPalette(RColorBrewer::brewer.pal(4,"Paired"))(4)
 pt1 <- DimPlot(object = seuset, pt.size = 0.05, reduction = 'umap', ncol = 1,
         group.by = c("orig.ident"), label = FALSE, cols = cbpal) +
@@ -161,11 +165,11 @@ png("TEPA_plots/S00_noClass_MycnPtprc.png", h = 3000, w = 4200, res = 300)
 FeatureScatter(seuset[,seuset$class == "noClass"], feature1 = "Mycn", feature2 = "Ptprc", pt.size = 1)
 dev.off()
 
-SaveH5Seurat(seuset, filename = "TEPA_results/S00_seusetClass.h5Seurat", overwrite = TRUE)
+SaveSeuratRds(seuset, "TEPA_results/S00_seusetClass.Rds")
 
 ### 5 -  Select only immune cells ####
 
-seuset <- LoadH5Seurat("TEPA_results/S00_seusetClass.h5Seurat")
+#seuset <- LoadSeuratRds("TEPA_results/S00_seusetClass.Rds")
 
 # remove noClass 
 seuset <- subset(seuset, class != "noClass")
@@ -178,14 +182,13 @@ dev.off()
 png("TEPA_plots/S00_Mt1ByClass.png", h = 3000, w = 4200, res = 500)
 VlnPlot(seuset, features = c("Mt1"), split.by = "condition" , group.by = "class",
         ncol = 1, pt.size = 0.0005) +
-  ylim(0,5) +
-  geom_signif(xmin = 1.8, xmax = 2.2, y_position = 4.75, annotations="***")
+  ylim(0,5) 
 dev.off()
 
 # Tumor cells
 tumor <- seuset[,seuset$class == "tumorCells"]
 table(tumor$orig.ident) 
-SaveH5Seurat(tumor, filename = "TEPA_results/S00_tumor.h5Seurat", overwrite = TRUE)
+SaveSeuratRds(tumor, "TEPA_results/S00_tumor.Rds")
 
 # Immune cells
 immune <- seuset[,seuset$class == "immuneCells"]
@@ -196,17 +199,18 @@ png("TEPA_plots/S00_immuneCells_MycnPtprc.png", h = 3000, w = 4200, res = 300)
 FeatureScatter(immune, feature1 = "Mycn", feature2 = "Ptprc", pt.size = 1)
 dev.off()
 
-#png("TEPA_plots/S00_postFilterImmune_violin.png", h = 3000, w = 4200, res = 300)
-pdf("TEPA_final_figures/S00_postFilterImmune_violin.pdf", w = 15, h = 8)
+png("TEPA_plots/S00_postFilterImmune_violin.png", h = 3000, w = 4200, res = 300)
+#pdf("TEPA_final_figures/S00_postFilterImmune_violin.pdf", w = 15, h = 8)
 VlnPlot(immune, features = c("nFeature_RNA", "nCount_RNA", "Mycn"), 
         ncol = 3, pt.size = 0.00000000005) &
   scale_fill_manual(values = brewer.pal(4, "Paired"))
 dev.off()
 
-SaveH5Seurat(immune, filename = "TEPA_results/S00_immune.h5Seurat", overwrite = TRUE)
+SaveSeuratRds(immune,"TEPA_results/S00_immune.Rds")
 
-# unload currently loaded packages for next session
-lapply(names(sessionInfo()$loadedOnly), require, character.only = TRUE)
-invisible(lapply(paste0('package:', names(sessionInfo()$otherPkgs)), detach, character.only=TRUE, unload=TRUE, force=TRUE))
+
+## unload currently loaded packages for next session
+#lapply(names(sessionInfo()$loadedOnly), require, character.only = TRUE)
+#invisible(lapply(paste0('package:', names(sessionInfo()$otherPkgs)), detach, character.only=TRUE, unload=TRUE, force=TRUE))
 
 
