@@ -497,7 +497,7 @@ sign_avgHeatMap <- function(obj, sign, immune = TRUE,
     assays = "RNA",
     features = sign,
     group.by = c("celltypes", "condition"),
-    layer = "scale.data")$RNA
+    layer = "data")$RNA
   
   my_data_matrix = as.matrix(my_data)
   rownames(my_data_matrix) = rownames(my_data)
