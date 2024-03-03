@@ -5,7 +5,6 @@
 library("Seurat")
 library("ggplot2")
 library(RColorBrewer)
-library("Nebulosa")
 library("ggpubr")
 
 setwd("~/Library/CloudStorage/OneDrive-UNSW/TEPA_project")

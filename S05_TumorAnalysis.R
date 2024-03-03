@@ -25,8 +25,8 @@ tumor <- LoadSeuratRds("TEPA_results/S00_tumor.Rds") #13560 cells and 21388 gene
 
 #### 1 - QC and filtering of tumor cells ####
 
-#png("TEPA_plots/S05_umapTumorNotInt.png", w = 2000, h = 2000, res = 300)
-pdf(qq("TEPA_final_figures/S05_umapTumorNotInt.pdf"), w = 6, h = 5)
+png("TEPA_plots/S05_umapTumorNotInt.png", w = 2000, h = 2000, res = 300)
+#pdf(qq("TEPA_final_figures/S05_umapTumorNotInt.pdf"), w = 6, h = 5)
 DimPlot(object = tumor, pt.size = 0.000000005, group.by = "condition",
         reduction = 'umap', ncol = 1,
         label = FALSE, cols = cond_col) +
@@ -75,7 +75,7 @@ dev.off()
 
 ### Batch effect correction ###
 
-samples.list <- Splitseuset_tumorect(tumor, split.by = "condition")
+samples.list <- SplitObject(tumor, split.by = "condition")
 
 # Normalize and identify variable features for each dataset independently (Treatment vs Control)
 samples.list <- lapply(X = samples.list, FUN = function(x) {

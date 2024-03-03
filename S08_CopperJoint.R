@@ -18,7 +18,7 @@ seuset_full <- merge(seuset_immune, y = seuset_tumor,
                      add.cell.ids = c("immune", "tumor"), 
                      project = "singleCell")
 
-seuset_full@assays$RNA@scale.data <- scale(seuset_full@assays$RNA@data, scale = TRUE)
+#seuset_full@assays$RNA@layers$scale.data <- scale(seuset_full@assays$RNA@layers$data, scale = TRUE)
 
 seuset_full$celltypes <- ifelse(test = is.na(seuset_full$celltypes), yes = "Tumor", no = seuset_full$celltypes)
 
@@ -36,7 +36,6 @@ seuset_full@meta.data$celltypes <- factor(seuset_full@meta.data$celltypes,
 
 SaveSeuratRds(seuset_full, "TEPA_results/S08_seusetFull.Rds")
 
-# move this to S05 or S06
 
 #### Create a signature of copper-related genes ####
 

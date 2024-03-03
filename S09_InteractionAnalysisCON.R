@@ -237,5 +237,5 @@ pdf("TEPA_final_figures/S09_CONsystems_struc.pdf", h = 6, w = 6)
 netVisual_embedding(cellchatCON, type = "structural", label.size = 3.5)
 dev.off()
 
-saveRDS(cellchatCON, file = "TEPA_results/CON_TEPAcellchatCON.rds")
+saveRDS(cellchatCON, file = "TEPA_results/TEPAcellchatCON.rds")
 
